@@ -12,11 +12,14 @@ import json
 class HotfolderWatcher:
     def __init__(self):
         self.global_config = load_global_config()
-        print("[DEBUG] Raw global config loaded:")
-        print(json.dumps(self.global_config, indent=2))
+        self.debug = self.global_config.get('debug', True)
+        if self.debug:
+            print("[DEBUG] Raw global config loaded:")
+            print(json.dumps(self.global_config, indent=2))
         # Normalize all hotfolder root paths to fix escaped spaces
         self.hotfolder_roots = [normalize_path(hf) for hf in self.global_config.get("hotfolders", [])]
-        print(f"[DEBUG] Normalized hotfolder roots list: {self.hotfolder_roots}")
+        if self.debug:
+            print(f"[DEBUG] Normalized hotfolder roots list: {self.hotfolder_roots}")
         self.running = False
         self.threads = {}  # {subfolder_path: thread}
         self.last_status = {}
@@ -24,7 +27,8 @@ class HotfolderWatcher:
 
     def run(self):
         self.running = True
-        print("Starting dynamic hotfolder watcher...")
+        if self.debug:
+            print("Starting dynamic hotfolder watcher...")
         try:
             while self.running:
                 self.scan_and_update_hotfolders()
@@ -38,7 +42,8 @@ class HotfolderWatcher:
         for root in self.hotfolder_roots:
             root_path = Path(root).resolve()
             if not root_path.exists():
-                print(f"[WARNING] Hotfolder root does not exist: {root_path}")
+                if self.debug:
+                    print(f"[WARNING] Hotfolder root does not exist: {root_path}")
                 continue
             for subfolder in root_path.iterdir():
                 if subfolder.is_dir() and not subfolder.name.startswith('.'):
@@ -47,7 +52,8 @@ class HotfolderWatcher:
         with self.lock:
             for folder in current_hotfolders:
                 if folder not in self.threads:
-                    print(f"[INFO] Starting watcher for new hotfolder: {folder}")
+                    if self.debug:
+                        print(f"[INFO] Starting watcher for new hotfolder: {folder}")
                     t = threading.Thread(target=self.watch_hotfolder, args=(folder,), daemon=True)
                     t.start()
                     self.threads[folder] = t
@@ -55,10 +61,12 @@ class HotfolderWatcher:
             # Remove threads for hotfolders that no longer exist
             removed = [f for f in self.threads if f not in current_hotfolders]
             for folder in removed:
-                print(f"[INFO] Hotfolder removed or no longer exists: {folder}")
+                if self.debug:
+                    print(f"[INFO] Hotfolder removed or no longer exists: {folder}")
                 # No direct way to stop threads, but they will exit on next check if self.running is False
                 del self.threads[folder]
-        print(f"[DEBUG] Currently watched hotfolders: {list(self.threads.keys())}")
+        if self.debug:
+            print(f"[DEBUG] Currently watched hotfolders: {list(self.threads.keys())}")
 
     def watch_hotfolder(self, folder_path):
         folder = Path(folder_path).resolve()
@@ -80,7 +88,8 @@ class HotfolderWatcher:
                         try:
                             ds_path.unlink()
                         except Exception as e:
-                            print(f"[WARNING] Could not remove {ds_path}: {e}")
+                            if self.debug:
+                                print(f"[WARNING] Could not remove {ds_path}: {e}")
         logger = get_hotfolder_logger(folder, retention_days=config.get("log_retention", 7))
         resting_time = config.get("resting_time", 300)
         dissolve_folders = config.get("dissolve_folders", False)
@@ -108,7 +117,8 @@ class HotfolderWatcher:
                         logger.info(f"   Contains: {rel_root / d}/")
                     for f_ in files_in_dir:
                         logger.info(f"   Contains: {rel_root / f_}")
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: files found: {[f.name for f in files]}")
+        if self.debug:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: files found: {[f.name for f in files]}")
         # Find the most recent mtime
         latest_mtime = max(f.stat().st_mtime for f in files)
         stable_at = latest_mtime + resting_time
@@ -118,7 +128,8 @@ class HotfolderWatcher:
         try:
             if is_stable:
                 if not last.get('stable', False):
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: STABLE, will pull now.")
+                    if self.debug:
+                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: STABLE, will pull now.")
                 moved_count = move_hotfolder_contents(folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_files, ignore_updates)
                 if moved_count > 0:
                     logger.info(f"Folder {folder} is stable. Moving contents to {out_folder}.")
@@ -126,7 +137,8 @@ class HotfolderWatcher:
                 self.last_status[str(folder)] = {'stable': True}
             else:
                 if last.get('stable', True) or last.get('stable_at') != stable_at:
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: NOT STABLE, if stable will pull at {stable_dt}.")
+                    if self.debug:
+                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: NOT STABLE, if stable will pull at {stable_dt}.")
                 self.last_status[str(folder)] = {'stable': False, 'stable_at': stable_at}
                 # Only log waiting if there are files to process
                 # logger.info(f"Folder {folder} is not yet stable. Waiting.")

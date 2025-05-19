@@ -9,7 +9,8 @@ GROUPED_KEYS = {
     "flattening": ["dissolve_folders"],
     "metadata": ["metadata", "metadata_field"],
     "logging": ["log_retention"],
-    "buffering": ["keep_files", "ignore_updates"]
+    "buffering": ["keep_files", "ignore_updates"],
+    "debugging": ["debug"]
 }
 
 REQUIRED_FIELDS = [
@@ -32,7 +33,8 @@ DEFAULT_CONFIG = {
     "scan_interval": 10,
     "keep_files": False,
     "ignore_updates": False,
-    "autoclean": True
+    "autoclean": True,
+    "debug": True
 }
 
 def flatten_grouped_config(config):
@@ -43,6 +45,9 @@ def flatten_grouped_config(config):
         for key in keys:
             if key in group_val:
                 flat[key] = group_val[key]
+    # Flatten debugging group
+    if "debugging" in config:
+        flat["debug"] = config["debugging"].get("debug", True)
     return flat
 
 def validate_config(config):
@@ -76,7 +81,8 @@ def get_effective_config(hotfolder_path, global_config=None):
         "flattening": {k: example_config[k] for k in GROUPED_KEYS["flattening"]},
         "metadata": {k: example_config[k] for k in GROUPED_KEYS["metadata"]},
         "logging": {k: example_config[k] for k in GROUPED_KEYS["logging"]},
-        "buffering": {k: example_config[k] for k in GROUPED_KEYS["buffering"]}
+        "buffering": {k: example_config[k] for k in GROUPED_KEYS["buffering"]},
+        "debugging": {k: example_config[k] for k in GROUPED_KEYS["debugging"]}
     }
     if config_file.exists():
         with open(config_file, "r") as f:

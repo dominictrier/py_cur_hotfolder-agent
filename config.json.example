@@ -28,5 +28,9 @@
       
     "cleaning": {
       "autoclean": true
-    }
+    },
+
+  "debugging": {
+    "debug": true
+  }
 } 
