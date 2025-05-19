@@ -1,0 +1,24 @@
+{
+  "timing": {
+    "scan_interval": 10,
+    "resting_time": 300
+  },
+
+  "flattening": {
+    "dissolve_folders": false
+  },
+
+  "metadata": {
+    "metadata": false,
+    "metadata_field": ""
+  },
+
+  "logging": {
+    "log_retention": 7
+  },
+
+  "buffering": {
+    "keep_files": false,
+    "ignore_updates": false
+  }
+} 

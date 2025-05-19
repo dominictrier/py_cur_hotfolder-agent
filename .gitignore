@@ -1,0 +1,14 @@
+# Python VENV
+venv/
+
+# Python Cache
+__pycache__/
+
+# Python Logs
+logs/
+
+# Python Data
+data/
+
+# Global Config
+/config.json

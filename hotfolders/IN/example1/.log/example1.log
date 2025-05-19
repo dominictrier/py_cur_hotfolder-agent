@@ -1,0 +1,5 @@
+2024-05-01 10:00:00,000 INFO Processing hotfolder: /path/to/hotfolders/IN/example1
+2024-05-01 10:00:00,100 INFO Folder /path/to/hotfolders/IN/example1 is stable. Moving contents to /path/to/hotfolders/OUT/example1.
+2024-05-01 10:00:01,200 INFO Move complete for /path/to/hotfolders/IN/example1.
+2024-05-01 10:05:00,000 INFO Processing hotfolder: /path/to/hotfolders/IN/example1
+2024-05-01 10:05:00,100 INFO Folder /path/to/hotfolders/IN/example1 is not yet stable. Waiting. 
