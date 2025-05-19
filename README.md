@@ -1,5 +1,7 @@
 # Hotfolder System
 
+![version](https://img.shields.io/badge/version-1.0.0-blue)
+
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
 
@@ -40,6 +42,9 @@ Example:
   "buffering": {
     "keep_files": false,
     "ignore_updates": false
+  },
+  "cleaning": {
+    "autoclean": true
   }
 }
 ```
@@ -57,6 +62,8 @@ Example:
 - `buffering`: File retention/copying options
   - `keep_files`: If true, files/folders are copied (not moved) to OUT and originals remain in IN
   - `ignore_updates`: If true, after a file/folder is processed once, future changes/additions are ignored
+- `cleaning`: Cleaning-related options
+  - `autoclean`: If true, automatically removes `.DS_Store` files from hotfolders
 
 ### Per-Hotfolder Config
 Each hotfolder can override any global config value by providing its own `.config/config.json` using the same grouped structure as above.
@@ -112,3 +119,11 @@ python3 src/main.py
 
 ## License
 MIT
+
+## Versioning
+
+The project version is tracked in `src/hotfolder/__init__.py` as `__version__`. Please update this value and the badge above for each release.
+
+## Configuration Style
+
+All new configuration options should be grouped under a descriptive key (e.g., `cleaning`, `timing`, `logging`). This keeps the config organized and scalable.
