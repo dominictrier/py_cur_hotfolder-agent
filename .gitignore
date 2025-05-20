@@ -12,3 +12,7 @@ data/
 
 # Global Config
 /config.json
+
+# Hotfolder Configs
+hotfolders/IN/example1/.config/config.json
+
