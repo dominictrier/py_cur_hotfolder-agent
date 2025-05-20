@@ -127,3 +127,32 @@ The project version is tracked in `src/hotfolder/__init__.py` as `__version__`. 
 ## Configuration Style
 
 All new configuration options should be grouped under a descriptive key (e.g., `cleaning`, `timing`, `logging`). This keeps the config organized and scalable.
+
+## Launchd Configuration
+
+To keep your hotfolder script running continuously on macOS, you can use `launchd` with a proper `plist` file.
+
+```xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.yourorg.hotfolder</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/python3</string>
+    <string>/Users/youruser/Documents/Projects/switch/py_cur_hotfolder-agent/src/main.py</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/youruser/Documents/Projects/switch/py_cur_hotfolder-agent</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/hotfolder.out</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/hotfolder.err</string>
+</dict>
+</plist>
+```

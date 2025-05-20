@@ -8,11 +8,26 @@ from pathlib import Path
 import threading
 from datetime import datetime, timedelta
 import json
+import sys
+from hotfolder.heartbeat import write_heartbeat
 
 class HotfolderWatcher:
     def __init__(self):
+        config_path = Path(__file__).parent.parent.parent / "config.json"
+        if not config_path.exists():
+            while True:
+                time.sleep(3600)
         self.global_config = load_global_config()
         self.debug = self.global_config.get('debug', True)
+        # Validate config
+        try:
+            from hotfolder.config import validate_config
+            validate_config(self.global_config)
+        except Exception as e:
+            logger = get_hotfolder_logger("global")
+            logger.error(f"Invalid config: {e}")
+            while True:
+                time.sleep(3600)
         if self.debug:
             print("[DEBUG] Raw global config loaded:")
             print(json.dumps(self.global_config, indent=2))
@@ -31,7 +46,12 @@ class HotfolderWatcher:
             print("Starting dynamic hotfolder watcher...")
         try:
             while self.running:
-                self.scan_and_update_hotfolders()
+                try:
+                    self.scan_and_update_hotfolders()
+                except Exception as e:
+                    logger = get_hotfolder_logger("global")
+                    logger.error(f"Unhandled error in scan loop: {e}")
+                write_heartbeat()
                 time.sleep(self.global_config.get("scan_interval", 10))
         except KeyboardInterrupt:
             self.running = False
@@ -73,10 +93,18 @@ class HotfolderWatcher:
         config = get_effective_config(folder, self.global_config)
         out_root = folder.parent.parent / "OUT" / folder.name
         while self.running:
-            self.handle_hotfolder(folder, out_root)
+            try:
+                self.handle_hotfolder(folder, out_root)
+            except Exception as e:
+                logger = get_hotfolder_logger(folder)
+                logger.error(f"Unhandled error in hotfolder thread: {e}")
             time.sleep(config.get("scan_interval", 10))
 
     def handle_hotfolder(self, folder, out_folder):
+        # Never execute or import code from the hotfolder
+        for f in folder.iterdir():
+            if f.suffix in {'.py', '.pyc', '.pyo', '.sh', '.bash', '.zsh', '.pl', '.rb', '.php', '.js', '.exe', '.dll', '.so', '.dylib'}:
+                continue  # Just skip, never execute or import
         cleanup_processed_json(folder)
         config = get_effective_config(folder, self.global_config)
         # Autoclean .DS_Store files if enabled
