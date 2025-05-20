@@ -156,3 +156,17 @@ To keep your hotfolder script running continuously on macOS, you can use `launch
 </dict>
 </plist>
 ```
+
+## Example Hotfolder Directory Structure
+
+```
+example-hotfolders/
+├── IN/
+│   └── example1/
+│       ├── .config/
+│       │   └── config.json.example
+│       ├── .log/
+│       │   └── example1.log
+├── OUT/
+│   └── example1/
+```

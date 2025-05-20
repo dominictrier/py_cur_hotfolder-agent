@@ -16,5 +16,21 @@ data/
 # Hotfolder Configs
 hotfolders/IN/example1/.config/config.json
 
+# Heartbeat
+heartbeat/
+heartbeat.txt
+
+# Hotfolder logs and configs
+example-hotfolders/IN/*/.log/
+example-hotfolders/IN/*/.config/
+example-hotfolders/OUT/
+
+# State files
+**/.processed.json
+
+# Output folders (if you want to ignore all OUT data)
+example-hotfolders/OUT/
+
 # Ignore macOS metadata files
+.DS_Store
 **/.DS_Store

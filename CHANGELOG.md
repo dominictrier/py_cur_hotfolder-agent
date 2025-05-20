@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0] - Minor update
+- Production hardening: robust error handling, config validation, and never execute code from hotfolder
+- Heartbeat file for process monitoring
+- Auto-create OUT folders and remove them if IN is deleted and OUT is empty
+- Improved .gitignore to exclude generated/state files and heartbeat
+- Documented example-hotfolders structure in README and removed example-hotfolders from repo
+
 ## [1.0.0] - Initial production-ready release
 - Hotfolder monitoring with per-folder config
 - Logging, log rotation, and retention
