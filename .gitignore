@@ -16,3 +16,5 @@ data/
 # Hotfolder Configs
 hotfolders/IN/example1/.config/config.json
 
+# .ds_store
+.DS_Store
