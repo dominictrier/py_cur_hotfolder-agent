@@ -83,6 +83,14 @@ class HotfolderWatcher:
             for folder in removed:
                 if self.debug:
                     print(f"[INFO] Hotfolder removed or no longer exists: {folder}")
+                # Remove OUT folder if empty
+                out_folder = Path(folder).parent.parent / "OUT" / Path(folder).name
+                if out_folder.exists() and out_folder.is_dir():
+                    try:
+                        if not any(out_folder.iterdir()):
+                            out_folder.rmdir()
+                    except Exception:
+                        pass
                 # No direct way to stop threads, but they will exit on next check if self.running is False
                 del self.threads[folder]
         if self.debug:
@@ -92,6 +100,8 @@ class HotfolderWatcher:
         folder = Path(folder_path).resolve()
         config = get_effective_config(folder, self.global_config)
         out_root = folder.parent.parent / "OUT" / folder.name
+        # Auto-create OUT hotfolder if it does not exist
+        out_root.mkdir(parents=True, exist_ok=True)
         while self.running:
             try:
                 self.handle_hotfolder(folder, out_root)
