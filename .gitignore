@@ -33,4 +33,3 @@ example-hotfolders/OUT/
 
 # Ignore macOS metadata files
 .DS_Store
-**/.DS_Store
