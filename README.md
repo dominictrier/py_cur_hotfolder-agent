@@ -168,5 +168,7 @@ example-hotfolders/
 │       ├── .log/
 │       │   └── example1.log
 ├── OUT/
-│   └── example1/
+│   └── example1_out/
 ```
+
+- For an IN hotfolder named `xxx`, the OUT hotfolder will be named `xxx_out` (e.g., `cbr_vid_s3_hotfolder` → `cbr_vid_s3_hotfolder_out`).

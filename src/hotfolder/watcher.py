@@ -84,7 +84,7 @@ class HotfolderWatcher:
                 if self.debug:
                     print(f"[INFO] Hotfolder removed or no longer exists: {folder}")
                 # Remove OUT folder if empty
-                out_folder = Path(folder).parent.parent / "OUT" / Path(folder).name
+                out_folder = Path(folder).parent.parent / "OUT" / f"{Path(folder).name}_out"
                 if out_folder.exists() and out_folder.is_dir():
                     try:
                         if not any(out_folder.iterdir()):
@@ -99,7 +99,7 @@ class HotfolderWatcher:
     def watch_hotfolder(self, folder_path):
         folder = Path(folder_path).resolve()
         config = get_effective_config(folder, self.global_config)
-        out_root = folder.parent.parent / "OUT" / folder.name
+        out_root = folder.parent.parent / "OUT" / f"{folder.name}_out"
         # Auto-create OUT hotfolder if it does not exist
         out_root.mkdir(parents=True, exist_ok=True)
         while self.running:
