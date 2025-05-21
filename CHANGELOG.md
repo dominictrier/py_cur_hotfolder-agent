@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0] - Minor update
+- OUT root is now always a sibling of IN root with _out, and OUT subfolders mirror IN subfolders
+- Updated documentation and example directory structure in README for clarity
+
+## [1.2.1] - Minor update
+- OUT hotfolders are now always created as siblings to the IN hotfolder, named <IN>_out
+- Updated documentation and example directory structure in README for clarity
+
 ## [1.2.0] - Minor update
 - OUT hotfolders are now named <IN>_out (e.g., IN = cbr_vid_s3_hotfolder, OUT = cbr_vid_s3_hotfolder_out)
 - Updated documentation and example directory structure in README

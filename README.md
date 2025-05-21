@@ -160,15 +160,13 @@ To keep your hotfolder script running continuously on macOS, you can use `launch
 ## Example Hotfolder Directory Structure
 
 ```
-example-hotfolders/
-├── IN/
-│   └── example1/
-│       ├── .config/
-│       │   └── config.json.example
-│       ├── .log/
-│       │   └── example1.log
-├── OUT/
-│   └── example1_out/
+hotfolder/
+├── actual_hotfolder_1/
+├── actual_hotfolder_2/
+
+hotfolder_out/
+├── actual_hotfolder_1/
+├── actual_hotfolder_2/
 ```
 
-- For an IN hotfolder named `xxx`, the OUT hotfolder will be named `xxx_out` (e.g., `cbr_vid_s3_hotfolder` → `cbr_vid_s3_hotfolder_out`).
+- For an IN root named `hotfolder`, the OUT root will be created as a sibling, named `hotfolder_out`, and OUT subfolders will mirror the IN subfolders.
