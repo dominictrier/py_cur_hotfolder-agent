@@ -1,6 +1,6 @@
 # Hotfolder System
 
-![version](https://img.shields.io/badge/version-1.5.0-blue)
+![version](https://img.shields.io/badge/version-1.6.0-blue)
 
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
@@ -79,7 +79,7 @@ If missing, a `.config/config.json.example` is created and the global config is 
   - If a file/folder is deleted from IN, it is also removed from the `.processed.json` tracking file.
 - If `ignore_updates` is false:
   - If a file/folder is updated or a new file is added, the whole folder is copied again after the new resting time is up.
-- The `.processed.json` file in each hotfolder's `.config` directory tracks what has been processed and is automatically cleaned up if files/folders are deleted from IN.
+- The `.processed.json` and `.seen.json` files in each hotfolder's `.config` directory track what has been processed and when files/folders were first seen. These files are now robustly cleaned up only when the folder is truly empty, preventing repeated log messages and ensuring correct state tracking.
 
 ## Metadata Feature
 - If `metadata` is `true` and the file is an image (`.jpg`, `.jpeg`, `.png`, `.tif`, `.tiff`):

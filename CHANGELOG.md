@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.6.0] - Minor update
+- Robust cleanup of .seen.json and .processed.json: these files are now only deleted when the folder is truly empty, preventing repeated log messages and ensuring correct state tracking
+- Bugfix: removed erroneous return statement that caused NameError in cleanup_processed_json
+
 ## [1.5.0] - Minor update
 - Clarified documentation for per-hotfolder config and keep_files behavior
 - Ensured correct copying/moving logic based on config
