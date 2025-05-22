@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.0] - Minor update
+- OUT folders are now created as siblings to each subfolder in the IN root, with _out appended to the name
+- Updated documentation and example directory structure in README for clarity
+
 ## [1.3.0] - Minor update
 - OUT root is now always a sibling of IN root with _out, and OUT subfolders mirror IN subfolders
 - Updated documentation and example directory structure in README for clarity

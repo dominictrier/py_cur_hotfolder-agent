@@ -1,6 +1,6 @@
 # Hotfolder System
 
-![version](https://img.shields.io/badge/version-1.1.0-blue)
+![version](https://img.shields.io/badge/version-1.4.0-blue)
 
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
@@ -162,11 +162,7 @@ To keep your hotfolder script running continuously on macOS, you can use `launch
 ```
 hotfolder/
 ├── actual_hotfolder_1/
-├── actual_hotfolder_2/
-
-hotfolder_out/
-├── actual_hotfolder_1/
-├── actual_hotfolder_2/
+├── actual_hotfolder_1_out/
 ```
 
-- For an IN root named `hotfolder`, the OUT root will be created as a sibling, named `hotfolder_out`, and OUT subfolders will mirror the IN subfolders.
+- For each subfolder `xxx` in the IN root, an OUT folder `xxx_out` is created as a sibling in the same IN root.

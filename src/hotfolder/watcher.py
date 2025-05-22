@@ -59,27 +59,26 @@ class HotfolderWatcher:
 
     def scan_and_update_hotfolders(self):
         current_hotfolders = set()
-        hotfolder_pairs = {}  # {in_subfolder: out_root}
+        hotfolder_pairs = {}  # {in_subfolder: out_subfolder}
         for root in self.hotfolder_roots:
             root_path = Path(root).resolve()
-            out_root = root_path.parent / f"{root_path.name}_out"
             if not root_path.exists():
                 if self.debug:
                     print(f"[WARNING] Hotfolder root does not exist: {root_path}")
                 continue
-            out_root.mkdir(parents=True, exist_ok=True)
             for subfolder in root_path.iterdir():
-                if subfolder.is_dir() and not subfolder.name.startswith('.'):
+                if subfolder.is_dir() and not subfolder.name.startswith('.') and not subfolder.name.endswith('_out'):
                     current_hotfolders.add(str(subfolder))
-                    hotfolder_pairs[str(subfolder)] = out_root
+                    out_subfolder = root_path / f"{subfolder.name}_out"
+                    hotfolder_pairs[str(subfolder)] = out_subfolder
         # Start threads for new hotfolders
         with self.lock:
             for folder in current_hotfolders:
                 if folder not in self.threads:
                     if self.debug:
                         print(f"[INFO] Starting watcher for new hotfolder: {folder}")
-                    out_root = hotfolder_pairs[folder]
-                    t = threading.Thread(target=self.watch_hotfolder, args=(folder, out_root), daemon=True)
+                    out_subfolder = hotfolder_pairs[folder]
+                    t = threading.Thread(target=self.watch_hotfolder, args=(folder, out_subfolder), daemon=True)
                     t.start()
                     self.threads[folder] = t
             # Remove threads for hotfolders that no longer exist
@@ -89,8 +88,7 @@ class HotfolderWatcher:
                     print(f"[INFO] Hotfolder removed or no longer exists: {folder}")
                 # Remove OUT subfolder if empty
                 in_folder = Path(folder)
-                out_root = in_folder.parent.parent / f"{in_folder.parent.name}_out"
-                out_subfolder = out_root / in_folder.name
+                out_subfolder = in_folder.parent / f"{in_folder.name}_out"
                 if out_subfolder.exists() and out_subfolder.is_dir():
                     try:
                         if not any(out_subfolder.iterdir()):
@@ -101,10 +99,9 @@ class HotfolderWatcher:
         if self.debug:
             print(f"[DEBUG] Currently watched hotfolders: {list(self.threads.keys())}")
 
-    def watch_hotfolder(self, folder_path, out_root):
+    def watch_hotfolder(self, folder_path, out_subfolder):
         folder = Path(folder_path).resolve()
         config = get_effective_config(folder, self.global_config)
-        out_subfolder = Path(out_root) / folder.name
         out_subfolder.mkdir(parents=True, exist_ok=True)
         while self.running:
             try:
