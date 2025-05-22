@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.0] - Minor update
+- Clarified documentation for per-hotfolder config and keep_files behavior
+- Ensured correct copying/moving logic based on config
+
 ## [1.4.0] - Minor update
 - OUT folders are now created as siblings to each subfolder in the IN root, with _out appended to the name
 - Updated documentation and example directory structure in README for clarity

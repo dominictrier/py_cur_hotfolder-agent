@@ -1,7 +1,7 @@
 from hotfolder.config import load_global_config, get_effective_config
 from hotfolder.logger import get_hotfolder_logger
 from hotfolder.utils import is_folder_stable, normalize_path
-from hotfolder.mover import move_hotfolder_contents, cleanup_processed_json, load_processed
+from hotfolder.mover import move_hotfolder_contents, cleanup_processed_json, load_processed, load_seen, save_seen
 import os
 import time
 from pathlib import Path
@@ -143,10 +143,27 @@ class HotfolderWatcher:
         # Log new arrivals
         config_dir = folder / ".config"
         processed = load_processed(config_dir)
+        seen = load_seen(config_dir)
         current_names = set(str(f.relative_to(folder)) for f in files)
         processed_names = set(processed.keys())
+        seen_names = set(seen.keys())
         new_arrivals = current_names - processed_names
-        for name in new_arrivals:
+        updated = False
+        new_seen_entries = set()
+        for f in files:
+            rel = str(f.relative_to(folder))
+            if rel not in seen:
+                seen[rel] = now
+                updated = True
+                new_seen_entries.add(rel)
+        # Clean up .seen.json for deleted files
+        removed_from_seen = seen_names - current_names
+        for rel in removed_from_seen:
+            del seen[rel]
+            updated = True
+        if updated:
+            save_seen(config_dir, seen)
+        for name in new_seen_entries:
             logger.info(f"New file/folder arrived: {name}")
             abs_path = folder / name
             if abs_path.is_dir():
@@ -158,11 +175,13 @@ class HotfolderWatcher:
                         logger.info(f"   Contains: {rel_root / f_}")
         if self.debug:
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: files found: {[f.name for f in files]}")
-        # Find the most recent mtime
+        # Find the most recent mtime for update detection
         latest_mtime = max(f.stat().st_mtime for f in files)
-        stable_at = latest_mtime + resting_time
+        # Use first seen time for resting logic
+        latest_seen = max(seen.get(str(f.relative_to(folder)), now) for f in files)
+        stable_at = latest_seen + resting_time
         stable_dt = datetime.fromtimestamp(stable_at)
-        is_stable = is_folder_stable(folder, resting_time)
+        is_stable = now >= stable_at
         last = self.last_status.get(str(folder), {})
         try:
             if is_stable:

@@ -1,6 +1,6 @@
 # Hotfolder System
 
-![version](https://img.shields.io/badge/version-1.4.0-blue)
+![version](https://img.shields.io/badge/version-1.5.0-blue)
 
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
@@ -62,6 +62,7 @@ Example:
 - `buffering`: File retention/copying options
   - `keep_files`: If true, files/folders are copied (not moved) to OUT and originals remain in IN
   - `ignore_updates`: If true, after a file/folder is processed once, future changes/additions are ignored
+  - **Note:** Per-hotfolder config can override global config. To enable copying for a specific hotfolder, set `keep_files: true` in its `.config/config.json`.
 - `cleaning`: Cleaning-related options
   - `autoclean`: If true, automatically removes `.DS_Store` files from hotfolders
 
@@ -141,10 +142,10 @@ To keep your hotfolder script running continuously on macOS, you can use `launch
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/python3</string>
-    <string>/Users/youruser/Documents/Projects/switch/py_cur_hotfolder-agent/src/main.py</string>
+    <string>/Path/to/py_cur_hotfolder-agent/src/main.py</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/youruser/Documents/Projects/switch/py_cur_hotfolder-agent</string>
+  <string>/Path/to/py_cur_hotfolder-agent</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
