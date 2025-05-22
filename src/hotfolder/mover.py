@@ -130,13 +130,18 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
         processed[rel_path] = mtime
     # Always save the cleaned processed dict, even if nothing was moved
     save_processed(config_dir, processed)
-    # Remove .processed.json if there are no more entries to monitor
+    # Remove .processed.json and .seen.json if there are no more entries to monitor
     if not processed:
         processed_file = config_dir / ".processed.json"
         if processed_file.exists():
             processed_file.unlink()
             if logger:
                 logger.info("Removed .processed.json (no more files/folders to monitor)")
+        seen_file = config_dir / ".seen.json"
+        if seen_file.exists():
+            seen_file.unlink()
+            if logger:
+                logger.info("Removed .seen.json (no more files/folders to monitor)")
     return moved_count
     # TODO: Handle more metadata if needed 
 
@@ -158,10 +163,15 @@ def cleanup_processed_json(hotfolder_path):
             logger.info(f"Removed entry from .processed.json (file/folder missing): {entry}")
     processed = {k: v for k, v in processed.items() if k in current_items}
     save_processed(config_dir, processed)
-    # Remove .processed.json if there are no more entries to monitor
+    # Remove .processed.json and .seen.json if there are no more entries to monitor
     if not processed:
         processed_file = config_dir / ".processed.json"
         if processed_file.exists():
             processed_file.unlink()
             if logger:
-                logger.info("Removed .processed.json (no more files/folders to monitor)") 
+                logger.info("Removed .processed.json (no more files/folders to monitor)")
+        seen_file = config_dir / ".seen.json"
+        if seen_file.exists():
+            seen_file.unlink()
+            if logger:
+                logger.info("Removed .seen.json (no more files/folders to monitor)") 
