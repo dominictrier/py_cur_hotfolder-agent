@@ -137,11 +137,21 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
             processed_file.unlink()
             if logger:
                 logger.info("Removed .processed.json (no more files/folders to monitor)")
+        # Only remove .seen.json if the folder is empty and .seen.json is empty
         seen_file = config_dir / ".seen.json"
         if seen_file.exists():
-            seen_file.unlink()
-            if logger:
-                logger.info("Removed .seen.json (no more files/folders to monitor)")
+            # Check if folder is empty (excluding .config and .log)
+            non_hidden = [f for f in src_folder.iterdir() if not f.name.startswith('.')]
+            if not non_hidden:
+                try:
+                    with open(seen_file, "r") as f:
+                        seen_data = json.load(f)
+                    if not seen_data:
+                        seen_file.unlink()
+                        if logger:
+                            logger.info("Removed .seen.json (no more files/folders to monitor)")
+                except Exception:
+                    pass
     return moved_count
     # TODO: Handle more metadata if needed 
 
@@ -170,8 +180,20 @@ def cleanup_processed_json(hotfolder_path):
             processed_file.unlink()
             if logger:
                 logger.info("Removed .processed.json (no more files/folders to monitor)")
+        # Only remove .seen.json if the folder is empty and .seen.json is empty
         seen_file = config_dir / ".seen.json"
         if seen_file.exists():
-            seen_file.unlink()
-            if logger:
-                logger.info("Removed .seen.json (no more files/folders to monitor)") 
+            # Check if folder is empty (excluding .config and .log)
+            non_hidden = [f for f in hotfolder_path.iterdir() if not f.name.startswith('.')]
+            if not non_hidden:
+                try:
+                    with open(seen_file, "r") as f:
+                        seen_data = json.load(f)
+                    if not seen_data:
+                        seen_file.unlink()
+                        if logger:
+                            logger.info("Removed .seen.json (no more files/folders to monitor)")
+                except Exception:
+                    pass
+    return moved_count
+    # TODO: Handle more metadata if needed 
