@@ -195,5 +195,3 @@ def cleanup_processed_json(hotfolder_path):
                             logger.info("Removed .seen.json (no more files/folders to monitor)")
                 except Exception:
                     pass
-    return moved_count
-    # TODO: Handle more metadata if needed 
