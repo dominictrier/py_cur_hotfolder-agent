@@ -52,6 +52,10 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
     processed = load_processed(config_dir)
     current_items = get_all_items(src_folder)
     # Clean up processed: remove entries for files/folders no longer in IN
+    removed_entries = set(processed.keys()) - set(current_items)
+    if removed_entries and logger:
+        for entry in removed_entries:
+            logger.info(f"Removed entry from .processed.json (file/folder missing): {entry}")
     processed = {k: v for k, v in processed.items() if k in current_items}
     moved_count = 0
     # For each item in src_folder
@@ -107,6 +111,8 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
     if not processed:
         processed_file = config_dir / ".processed.json"
         if processed_file.exists():
+            if logger:
+                logger.info("Removed .processed.json (no more files/folders to monitor)")
             processed_file.unlink()
     return moved_count
     # TODO: Handle more metadata if needed 
@@ -117,10 +123,22 @@ def cleanup_processed_json(hotfolder_path):
     processed = load_processed(config_dir)
     current_items = get_all_items(hotfolder_path)
     # Clean up processed: remove entries for files/folders no longer in IN
+    removed_entries = set(processed.keys()) - set(current_items)
+    logger = None
+    try:
+        from hotfolder.logger import get_hotfolder_logger
+        logger = get_hotfolder_logger(hotfolder_path)
+    except Exception:
+        pass
+    if removed_entries and logger:
+        for entry in removed_entries:
+            logger.info(f"Removed entry from .processed.json (file/folder missing): {entry}")
     processed = {k: v for k, v in processed.items() if k in current_items}
     save_processed(config_dir, processed)
     # Remove .processed.json if there are no more entries to monitor
     if not processed:
         processed_file = config_dir / ".processed.json"
         if processed_file.exists():
+            if logger:
+                logger.info("Removed .processed.json (no more files/folders to monitor)")
             processed_file.unlink() 
