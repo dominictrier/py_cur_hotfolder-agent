@@ -136,6 +136,7 @@ class HotfolderWatcher:
         metadata_field = config.get("metadata_field", None)
         keep_files = config.get("keep_files", False)
         ignore_updates = config.get("ignore_updates", False)
+        update_mtime = config.get("update_mtime", True)
         now = time.time()
         files = [f for f in folder.iterdir() if not f.name.startswith('.')]
         if not files:
@@ -188,7 +189,7 @@ class HotfolderWatcher:
                 if not last.get('stable', False):
                     if self.debug:
                         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: STABLE, will pull now.")
-                moved_count = move_hotfolder_contents(folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_files, ignore_updates)
+                moved_count = move_hotfolder_contents(folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_files, ignore_updates, update_mtime)
                 if moved_count > 0:
                     logger.info(f"Folder {folder} is stable. Moving contents to {out_folder}.")
                     logger.info(f"Move complete for {folder}. {moved_count} item(s) moved.")

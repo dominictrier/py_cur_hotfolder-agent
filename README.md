@@ -1,6 +1,6 @@
 # Hotfolder System
 
-![version](https://img.shields.io/badge/version-1.6.0-blue)
+![version](https://img.shields.io/badge/version-1.7.0-blue)
 
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
@@ -14,7 +14,7 @@ This Python hotfolder system monitors one or more input directories for new file
 - Metadata writing to image files (IPTC fields)
 - Dynamic detection of new/removed hotfolders
 - Configurable scan interval for both global and per-hotfolder polling
-- **Keep files** and **ignore updates** options for advanced copy/retention logic
+- **Keep files**, **ignore updates**, and **update mtime** options for advanced copy/retention logic
 
 ## Configuration
 
@@ -45,6 +45,9 @@ Example:
   },
   "cleaning": {
     "autoclean": true
+  },
+  "mtime": {
+    "update_mtime": false
   }
 }
 ```
@@ -65,6 +68,10 @@ Example:
   - **Note:** Per-hotfolder config can override global config. To enable copying for a specific hotfolder, set `keep_files: true` in its `.config/config.json`.
 - `cleaning`: Cleaning-related options
   - `autoclean`: If true, automatically removes `.DS_Store` files from hotfolders
+- `mtime`: File modification time options
+  - `update_mtime`: If true, after moving/copying a job (file/folder) to OUT, its modification time (mtime) is updated ("touched").
+    - Default: false. Enable to avoid 1970-mtime masking issues in OUT folders. Cannot change IN files' mtime.
+    - Can be set globally or per-hotfolder.
 
 ### Per-Hotfolder Config
 Each hotfolder can override any global config value by providing its own `.config/config.json` using the same grouped structure as above.

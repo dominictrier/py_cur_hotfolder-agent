@@ -68,7 +68,7 @@ def get_all_items(folder):
             items.append(str(rel))
     return items
 
-def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, metadata=False, metadata_field=None, logger=None, keep_files=False, ignore_updates=False):
+def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, metadata=False, metadata_field=None, logger=None, keep_files=False, ignore_updates=False, update_mtime=True):
     src_folder = Path(src_folder)
     dst_folder = Path(dst_folder)
     config_dir = src_folder / ".config"
@@ -108,6 +108,13 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
                 else:
                     shutil.move(str(item), str(dest))
                 moved_count += 1
+                # Touch the folder after moving/copying if update_mtime is True
+                if update_mtime:
+                    try:
+                        os.utime(str(dest), None)
+                    except Exception as e:
+                        if logger:
+                            logger.warning(f"Failed to update mtime for {dest}: {e}")
         else:
             # METADATA HANDLING
             if metadata and is_image_file(item):
@@ -126,6 +133,13 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
             else:
                 shutil.move(str(item), str(dest))
             moved_count += 1
+            # Touch the file after moving/copying if update_mtime is True
+            if update_mtime:
+                try:
+                    os.utime(str(dest), None)
+                except Exception as e:
+                    if logger:
+                        logger.warning(f"Failed to update mtime for {dest}: {e}")
         # Mark as processed
         processed[rel_path] = mtime
     # Always save the cleaned processed dict, even if nothing was moved

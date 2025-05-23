@@ -39,4 +39,7 @@
 - Automatic .DS_Store cleaning
 - Debug and cleaning config groups
 - Robust error handling and config validation
-- Heartbeat and production hardening 
+- Heartbeat and production hardening
+
+## [1.7.0] - Minor update
+- Feature: Add per-hotfolder and global config option mtime.update_mtime (default: false) to control whether jobs (files/folders) are 'touched' (mtime updated) after moving/copying to OUT. Helps avoid 1970-mtime masking issues in OUT folders. Fully documented and configurable. 

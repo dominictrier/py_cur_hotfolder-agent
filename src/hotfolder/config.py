@@ -10,7 +10,8 @@ GROUPED_KEYS = {
     "metadata": ["metadata", "metadata_field"],
     "logging": ["log_retention"],
     "buffering": ["keep_files", "ignore_updates"],
-    "debugging": ["debug"]
+    "debugging": ["debug"],
+    "mtime": ["update_mtime"]
 }
 
 REQUIRED_FIELDS = [
@@ -34,7 +35,8 @@ DEFAULT_CONFIG = {
     "keep_files": False,
     "ignore_updates": False,
     "autoclean": True,
-    "debug": True
+    "debug": True,
+    "update_mtime": False
 }
 
 def flatten_grouped_config(config):
@@ -48,6 +50,9 @@ def flatten_grouped_config(config):
     # Flatten debugging group
     if "debugging" in config:
         flat["debug"] = config["debugging"].get("debug", True)
+    # Flatten mtime group
+    if "mtime" in config:
+        flat["update_mtime"] = config["mtime"].get("update_mtime", False)
     return flat
 
 def validate_config(config):
@@ -82,6 +87,7 @@ def get_effective_config(hotfolder_path, global_config=None):
         "metadata": {k: example_config[k] for k in GROUPED_KEYS["metadata"]},
         "logging": {k: example_config[k] for k in GROUPED_KEYS["logging"]},
         "buffering": {k: example_config[k] for k in GROUPED_KEYS["buffering"]},
+        "mtime": {k: example_config[k] for k in GROUPED_KEYS["mtime"]},
         "debugging": {k: example_config[k] for k in GROUPED_KEYS["debugging"]}
     }
     if config_file.exists():

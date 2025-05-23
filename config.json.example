@@ -32,5 +32,9 @@
 
   "debugging": {
     "debug": true
+  },
+
+  "mtime": {
+    "update_mtime": false
   }
 } 
