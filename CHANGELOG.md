@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.7.0] - Minor update
+- Feature: Add per-hotfolder and global config option mtime.update_mtime (default: false) to control whether jobs (files/folders) are 'touched' (mtime updated) after moving/copying to OUT. Helps avoid 1970-mtime masking issues in OUT folders. Fully documented and configurable. 
+
 ## [1.6.0] - Minor update
 - Robust cleanup of .seen.json and .processed.json: these files are now only deleted when the folder is truly empty, preventing repeated log messages and ensuring correct state tracking
 - Bugfix: removed erroneous return statement that caused NameError in cleanup_processed_json
@@ -39,7 +42,4 @@
 - Automatic .DS_Store cleaning
 - Debug and cleaning config groups
 - Robust error handling and config validation
-- Heartbeat and production hardening
-
-## [1.7.0] - Minor update
-- Feature: Add per-hotfolder and global config option mtime.update_mtime (default: false) to control whether jobs (files/folders) are 'touched' (mtime updated) after moving/copying to OUT. Helps avoid 1970-mtime masking issues in OUT folders. Fully documented and configurable. 
+- Heartbeat and production hardening 
