@@ -15,6 +15,7 @@ This Python hotfolder system monitors one or more input directories for new file
 - Dynamic detection of new/removed hotfolders
 - Configurable scan interval for both global and per-hotfolder polling
 - **Keep files**, **ignore updates**, and **update mtime** options for advanced copy/retention logic
+- **Skips `.DS_Store` and `thumbs.db` files** (if enabled in config) when copying/moving to OUT, so OUT is always clean of these system files.
 
 ## Configuration
 
@@ -46,6 +47,7 @@ Example:
   },
   "auto_cleanup": {
     "ds_store": true,
+    "thumbs_db": true,
     "retention": false
   },
   "mtime": {
@@ -72,7 +74,8 @@ Example:
 - `logging`: Logging options
   - `log_retention`: Log retention in days
 - `auto_cleanup`: Cleaning-related options
-  - `ds_store`: If true, automatically removes `.DS_Store` files from hotfolders (default: true)
+  - `ds_store`: If true, automatically skips `.DS_Store` files when copying/moving to OUT (default: true)
+  - `thumbs_db`: If true, automatically skips `thumbs.db` files (any case) when copying/moving to OUT (default: true)
   - `retention`: If true, enables buffer_cleanup_time-based deletion of files/folders in IN after retention period.
 - `mtime`: File modification time options
   - `update_mtime`: If true, after moving/copying a job (file/folder) to OUT, its modification time (mtime) is updated ("touched").

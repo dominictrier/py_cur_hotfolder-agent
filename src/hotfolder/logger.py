@@ -33,4 +33,29 @@ def get_hotfolder_logger(hotfolder_path, retention_days=7):
     logger.handlers = []
     handler = OnDemandFileHandler(log_file, retention_days)
     logger.addHandler(handler)
+    return logger
+
+# New: Debug logger for parallel debug log file
+_own_debug_loggers = {}
+def get_hotfolder_debug_logger(hotfolder_path):
+    hotfolder_path = str(hotfolder_path)
+    if hotfolder_path in _own_debug_loggers:
+        return _own_debug_loggers[hotfolder_path]
+    log_dir = Path(hotfolder_path) / ".log" if hotfolder_path != "global" else Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    if hotfolder_path == "global":
+        log_file = log_dir / "global.debug.log"
+        logger_name = "global_debug"
+    else:
+        log_file = log_dir / f"{Path(hotfolder_path).name}.debug.log"
+        logger_name = f"{Path(hotfolder_path).name}_debug"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(log_file)
+    fh.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    fh.setFormatter(formatter)
+    if not logger.hasHandlers():
+        logger.addHandler(fh)
+    _own_debug_loggers[hotfolder_path] = logger
     return logger 

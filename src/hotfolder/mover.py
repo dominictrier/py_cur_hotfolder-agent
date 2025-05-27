@@ -69,9 +69,9 @@ def get_all_items(folder):
             items.append(str(rel))
     return items
 
-def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, metadata=False, metadata_field=None, logger=None, keep_copy=False, ignore_updates=False, update_mtime=True):
+def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, metadata=False, metadata_field=None, logger=None, keep_copy=False, ignore_updates=False, update_mtime=True, ds_store=True, thumbs_db=True):
     if logger:
-        logger.info(f"[DEBUG] move_hotfolder_contents called: src_folder={src_folder}, dst_folder={dst_folder}, keep_copy={keep_copy}, ignore_updates={ignore_updates}, update_mtime={update_mtime}")
+        logger.info(f"move_hotfolder_contents called: src_folder={src_folder}, dst_folder={dst_folder}, keep_copy={keep_copy}, ignore_updates={ignore_updates}, update_mtime={update_mtime}, ds_store={ds_store}, thumbs_db={thumbs_db}")
     src_folder = Path(src_folder)
     dst_folder = Path(dst_folder)
     config_dir = src_folder / ".config"
@@ -87,9 +87,14 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
     # For each item in src_folder
     for item in src_folder.iterdir():
         if logger:
-            logger.info(f"[DEBUG] Processing item: {item}, is_dir={item.is_dir()}, keep_copy={keep_copy}")
+            logger.info(f"Processing item: {item}, is_dir={item.is_dir()}, keep_copy={keep_copy}")
         if item.name.startswith('.'):
             continue  # Skip .config, .log, etc.
+        # Respect config for ds_store and thumbs_db
+        if (ds_store and item.name == '.DS_Store') or (thumbs_db and item.name.lower() == 'thumbs.db'):
+            if logger:
+                logger.info(f"Skipping system file: {item}")
+            continue  # Never copy/move .DS_Store or Thumbs.db to OUT if enabled
         dest = dst_folder / item.name
         rel_path = str(item.relative_to(src_folder))
         mtime = item.stat().st_mtime
@@ -98,14 +103,14 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
             if ignore_updates:
                 if already_processed:
                     if logger:
-                        logger.info(f"[DEBUG] Skipping already processed item (ignore_updates): {item}")
+                        logger.info(f"Skipping already processed item (ignore_updates): {item}")
                     continue  # Skip, already processed
             else:
                 # If not ignore_updates, re-copy if mtime changed
                 if already_processed:
                     # If mtime is the same, skip
                     if logger:
-                        logger.info(f"[DEBUG] Skipping already processed item: {item}")
+                        logger.info(f"Skipping already processed item: {item}")
                     continue
         if item.is_dir():
             if dissolve_folders:
@@ -114,12 +119,31 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
             else:
                 if keep_copy:
                     if logger:
-                        logger.info(f"[DEBUG] Copying directory: {item} -> {dest}")
-                    shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
+                        logger.info(f"Copying directory: {item} -> {dest}")
+                    # Custom copytree to skip .DS_Store and Thumbs.db if enabled
+                    def ignore_system_files(dir, files):
+                        ignore = []
+                        if ds_store:
+                            ignore += [f for f in files if f == '.DS_Store']
+                        if thumbs_db:
+                            ignore += [f for f in files if f.lower() == 'thumbs.db']
+                        return ignore
+                    shutil.copytree(str(item), str(dest), dirs_exist_ok=True, ignore=ignore_system_files)
                 else:
                     if logger:
-                        logger.info(f"[DEBUG] Moving directory: {item} -> {dest}")
+                        logger.info(f"Moving directory: {item} -> {dest}")
+                    # Move, then remove .DS_Store and Thumbs.db from dest if enabled
                     shutil.move(str(item), str(dest))
+                    for root, dirs, files in os.walk(dest):
+                        for f in files:
+                            if (ds_store and f == '.DS_Store') or (thumbs_db and f.lower() == 'thumbs.db'):
+                                try:
+                                    os.remove(os.path.join(root, f))
+                                    if logger:
+                                        logger.info(f"Removed system file from OUT after move: {os.path.join(root, f)}")
+                                except Exception as e:
+                                    if logger:
+                                        logger.warning(f"Failed to remove system file from OUT: {e}")
                 moved_count += 1
                 # Touch the folder after moving/copying if update_mtime is True
                 if update_mtime:
@@ -130,6 +154,10 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
                             logger.warning(f"Failed to update mtime for {dest}: {e}")
         else:
             # METADATA HANDLING
+            if (ds_store and item.name == '.DS_Store') or (thumbs_db and item.name.lower() == 'thumbs.db'):
+                if logger:
+                    logger.info(f"Skipping system file: {item}")
+                continue
             if metadata and is_image_file(item):
                 if not metadata_field:
                     if logger:
@@ -143,11 +171,11 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
                         write_metadata(str(item), iptc_field, str(item.resolve()), logger)
             if keep_copy:
                 if logger:
-                    logger.info(f"[DEBUG] Copying file: {item} -> {dest}")
+                    logger.info(f"Copying file: {item} -> {dest}")
                 shutil.copy2(str(item), str(dest))
             else:
                 if logger:
-                    logger.info(f"[DEBUG] Moving file: {item} -> {dest}")
+                    logger.info(f"Moving file: {item} -> {dest}")
                 shutil.move(str(item), str(dest))
             moved_count += 1
             # Touch the file after moving/copying if update_mtime is True

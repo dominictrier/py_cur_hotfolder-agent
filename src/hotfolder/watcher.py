@@ -1,5 +1,5 @@
 from hotfolder.config import load_global_config, get_effective_config
-from hotfolder.logger import get_hotfolder_logger
+from hotfolder.logger import get_hotfolder_logger, get_hotfolder_debug_logger
 from hotfolder.utils import is_folder_stable, normalize_path
 from hotfolder.mover import move_hotfolder_contents, cleanup_processed_json, load_processed, load_seen, save_seen, save_processed
 import os
@@ -140,6 +140,8 @@ class HotfolderWatcher:
         retention = self.validate_bool(config.get("retention", False), "retention", False)
         retention_cleanup_time = config.get("retention_cleanup_time", 1440)
         update_mtime = config.get("update_mtime", True)
+        ds_store = config.get("ds_store", True)
+        thumbs_db = config.get("thumbs_db", True)
         now = time.time()
         config_dir = folder / ".config"
         processed = load_processed(config_dir)
@@ -148,37 +150,112 @@ class HotfolderWatcher:
         changed = False
         for idx, f in enumerate(files):
             rel = str(f.relative_to(folder))
+            f_path = folder / rel
             # 1. Add to seen if new
             if rel not in seen:
                 seen[rel] = now
                 changed = True
-                # Add a blank line before each new ARRIVED group except the first
                 if idx > 0:
                     logger.info("")
                 self.log_action(logger, folder, "ARRIVED", f"New file/folder: {rel}")
-                # If it's a directory, recursively log all contained files
-                f_path = folder / rel
                 if f_path.is_dir():
                     for subfile in f_path.rglob('*'):
                         if subfile.is_file():
                             subrel = str(subfile.relative_to(folder))
-                            # Indent CONTAINS lines for clarity
                             logger.info(f"    [CONTAINS] {subrel}")
+            # --- Resting time fix: reset seen_time if any file changes ---
+            if f_path.is_dir():
+                # Recursively check all files and subfolders
+                last_seen = seen[rel]
+                latest_mtime = last_seen
+                file_set = set()
+                for subfile in f_path.rglob('*'):
+                    if subfile.is_file():
+                        file_set.add(str(subfile.relative_to(folder)))
+                        mtime = subfile.stat().st_mtime
+                        if mtime > latest_mtime:
+                            latest_mtime = mtime
+                # Check for new/deleted files
+                processed_entry = processed.get(rel, {})
+                processed_files = set(processed_entry.get('files', {}).keys())
+                if latest_mtime > last_seen or file_set != processed_files:
+                    seen[rel] = now
+                    changed = True
+                    if debug_enabled:
+                        self._debug_print(folder, f"[RESTING] Reset seen_time for {rel} due to file change (mtime or file set)", debug_enabled=debug_enabled)
+            elif f_path.is_file():
+                mtime = f_path.stat().st_mtime
+                if mtime > seen[rel]:
+                    seen[rel] = now
+                    changed = True
+                    if debug_enabled:
+                        self._debug_print(folder, f"[RESTING] Reset seen_time for {rel} due to file mtime change", debug_enabled=debug_enabled)
             # 2. Check if stable
             seen_time = seen[rel]
             stable = (now - seen_time) >= resting_time
             if stable:
-                # 3. If not processed, process and mark as processed
-                if rel not in processed:
-                    if debug_enabled:
-                        self._debug_print(folder, f"[PROCESSING] {rel} is stable, processing now.", debug_enabled=debug_enabled)
-                    moved_count = move_hotfolder_contents(
-                        folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_copy, ignore_updates, update_mtime)
-                    processed[rel] = {"processed_time": now}
-                    changed = True
-                    self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
+                f_path = folder / rel
+                if keep_copy and f_path.is_dir():
+                    # Recursively process files in the job folder
+                    job_files = [sf for sf in f_path.rglob('*') if sf.is_file()]
+                    processed_entry = processed.get(rel, {})
+                    processed_files = processed_entry.get('files', {})
+                    to_process = []
+                    current_files = set()
+                    for sf in job_files:
+                        srel = str(sf.relative_to(folder))
+                        smtime = sf.stat().st_mtime
+                        current_files.add(srel)
+                        pf = processed_files.get(srel, {})
+                        if pf.get('mtime') != smtime:
+                            to_process.append((sf, srel, smtime))
+                    if to_process:
+                        moved_count = 0
+                        for sf, srel, smtime in to_process:
+                            out_path = out_folder / srel
+                            out_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(str(sf), str(out_path))
+                            moved_count += 1
+                            if debug_enabled:
+                                self._debug_print(folder, f"[PER-FILE] Copied {srel} to OUT.", debug_enabled=debug_enabled)
+                        # Update processed entry
+                        processed[rel] = processed.get(rel, {})
+                        processed[rel]['processed_time'] = now
+                        processed[rel]['files'] = processed_files
+                        for _, srel, smtime in to_process:
+                            processed[rel]['files'][srel] = {'mtime': smtime, 'processed_time': now}
+                        changed = True
+                        self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
+                    # Handle deletions: remove entries for files no longer present
+                    removed_files = set(processed_files.keys()) - current_files
+                    for srel in removed_files:
+                        del processed[rel]['files'][srel]
+                        changed = True
+                        self.log_action(logger, folder, "REMOVED", f"File removed from IN: {srel}")
+                elif keep_copy and f_path.is_file():
+                    smtime = f_path.stat().st_mtime
+                    processed_entry = processed.get(rel, {})
+                    pf = processed_entry.get('file', {})
+                    if pf.get('mtime') != smtime:
+                        out_path = out_folder / rel
+                        out_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(str(f_path), str(out_path))
+                        processed[rel] = {'processed_time': now, 'file': {'mtime': smtime, 'processed_time': now}}
+                        changed = True
+                        self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count=1")
+                elif not keep_copy:
+                    # Move logic unchanged: move whole job after resting_time
+                    if rel not in processed:
+                        if debug_enabled:
+                            self._debug_print(folder, f"[PROCESSING] {rel} is stable, moving now.", debug_enabled=debug_enabled)
+                        moved_count = move_hotfolder_contents(
+                            folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_copy, ignore_updates, update_mtime, ds_store, thumbs_db)
+                        processed[rel] = {"processed_time": now}
+                        changed = True
+                        self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
             # 4. Log status
-            processed_time = processed[rel]["processed_time"] if rel in processed else None
+            processed_entry = processed.get(rel, {})
+            processed_time = processed_entry.get("processed_time")
             age = (now - processed_time) if processed_time else None
             if debug_enabled:
                 self._debug_print(folder, f"File: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: {processed_time}, age: {age if age is not None else 'N/A'}", debug_enabled=debug_enabled)
@@ -216,7 +293,11 @@ class HotfolderWatcher:
             debug_enabled = self.debug
         if debug_enabled:
             ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            print(f"[DEBUG][{ts}][hotfolder: {folder}] {message}")
+            debug_msg = f"[DEBUG][{ts}][hotfolder: {folder}] {message}"
+            print(debug_msg)
+            # Write to debug log file
+            debug_logger = get_hotfolder_debug_logger(folder if folder != 'global' else 'global')
+            debug_logger.debug(message)
 
     def log_action(self, logger, folder, action, details, level="info"):
         msg = f"[HOTFOLDER: {folder}] [{action}] {details}"

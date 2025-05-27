@@ -29,6 +29,7 @@
 
   "auto_cleanup": {
     "ds_store": true,
+    "thumbs_db": true,
     "retention": false
   },
 

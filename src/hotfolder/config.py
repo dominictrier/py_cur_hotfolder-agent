@@ -10,7 +10,7 @@ GROUPED_KEYS = {
     "structure": ["dissolve_folders"],
     "metadata": ["metadata", "metadata_field"],
     "logging": ["log_retention"],
-    "auto_cleanup": ["ds_store", "retention"],
+    "auto_cleanup": ["ds_store", "retention", "thumbs_db"],
     "mtime": ["update_mtime"],
     "debugging": ["debug"]
 }
@@ -28,7 +28,8 @@ REQUIRED_FIELDS = [
     "ds_store",
     "retention",
     "update_mtime",
-    "debug"
+    "debug",
+    "thumbs_db"
 ]
 
 DEFAULT_CONFIG = {
@@ -44,7 +45,8 @@ DEFAULT_CONFIG = {
     "ds_store": True,
     "retention": False,
     "update_mtime": True,
-    "debug": False
+    "debug": False,
+    "thumbs_db": True
 }
 
 def flatten_grouped_config(config):
@@ -59,6 +61,7 @@ def flatten_grouped_config(config):
     if "auto_cleanup" in config:
         flat["ds_store"] = config["auto_cleanup"].get("ds_store", True)
         flat["retention"] = config["auto_cleanup"].get("retention", False)
+        flat["thumbs_db"] = config["auto_cleanup"].get("thumbs_db", True)
     # Flatten debugging group
     if "debugging" in config:
         flat["debug"] = config["debugging"].get("debug", True)
@@ -128,7 +131,8 @@ def get_effective_config(hotfolder_path, global_config=None):
             "ds_store": bool,
             "retention": bool,
             "update_mtime": bool,
-            "debug": bool
+            "debug": bool,
+            "thumbs_db": bool
         }
         for key, expected_type in type_checks.items():
             val = flat_folder[key]
