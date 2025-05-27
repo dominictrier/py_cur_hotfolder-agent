@@ -1,7 +1,7 @@
 from hotfolder.config import load_global_config, get_effective_config
 from hotfolder.logger import get_hotfolder_logger
 from hotfolder.utils import is_folder_stable, normalize_path
-from hotfolder.mover import move_hotfolder_contents, cleanup_processed_json, load_processed, load_seen, save_seen
+from hotfolder.mover import move_hotfolder_contents, cleanup_processed_json, load_processed, load_seen, save_seen, save_processed
 import os
 import time
 from pathlib import Path
@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import json
 import sys
 from hotfolder.heartbeat import write_heartbeat
+import shutil
 
 class HotfolderWatcher:
     def __init__(self):
@@ -29,12 +30,12 @@ class HotfolderWatcher:
             while True:
                 time.sleep(3600)
         if self.debug:
-            print("[DEBUG] Raw global config loaded:")
+            self._debug_print('global', "Raw global config loaded:")
             print(json.dumps(self.global_config, indent=2))
         # Normalize all hotfolder root paths to fix escaped spaces
         self.hotfolder_roots = [normalize_path(hf) for hf in self.global_config.get("hotfolders", [])]
         if self.debug:
-            print(f"[DEBUG] Normalized hotfolder roots list: {self.hotfolder_roots}")
+            self._debug_print('global', f"Normalized hotfolder roots list: {self.hotfolder_roots}")
         self.running = False
         self.threads = {}  # {subfolder_path: thread}
         self.last_status = {}
@@ -43,7 +44,7 @@ class HotfolderWatcher:
     def run(self):
         self.running = True
         if self.debug:
-            print("Starting dynamic hotfolder watcher...")
+            self._debug_print('global', "Starting dynamic hotfolder watcher...")
         try:
             while self.running:
                 try:
@@ -64,7 +65,7 @@ class HotfolderWatcher:
             root_path = Path(root).resolve()
             if not root_path.exists():
                 if self.debug:
-                    print(f"[WARNING] Hotfolder root does not exist: {root_path}")
+                    self._debug_print(root, f"[WARNING] Hotfolder root does not exist: {root_path}")
                 continue
             for subfolder in root_path.iterdir():
                 if subfolder.is_dir() and not subfolder.name.startswith('.') and not subfolder.name.endswith('_out'):
@@ -76,7 +77,7 @@ class HotfolderWatcher:
             for folder in current_hotfolders:
                 if folder not in self.threads:
                     if self.debug:
-                        print(f"[INFO] Starting watcher for new hotfolder: {folder}")
+                        self._debug_print(folder, "Starting watcher for new hotfolder.")
                     out_subfolder = hotfolder_pairs[folder]
                     t = threading.Thread(target=self.watch_hotfolder, args=(folder, out_subfolder), daemon=True)
                     t.start()
@@ -85,7 +86,7 @@ class HotfolderWatcher:
             removed = [f for f in self.threads if f not in current_hotfolders]
             for folder in removed:
                 if self.debug:
-                    print(f"[INFO] Hotfolder removed or no longer exists: {folder}")
+                    self._debug_print(folder, "Hotfolder removed or no longer exists.")
                 # Remove OUT subfolder if empty
                 in_folder = Path(folder)
                 out_subfolder = in_folder.parent / f"{in_folder.name}_out"
@@ -97,11 +98,14 @@ class HotfolderWatcher:
                         pass
                 del self.threads[folder]
         if self.debug:
-            print(f"[DEBUG] Currently watched hotfolders: {list(self.threads.keys())}")
+            self._debug_print('global', f"Currently watched hotfolders: {list(self.threads.keys())}")
 
     def watch_hotfolder(self, folder_path, out_subfolder):
         folder = Path(folder_path).resolve()
         config = get_effective_config(folder, self.global_config)
+        if self.debug:
+            self._debug_print(folder, "Effective config loaded:")
+            print(json.dumps(config, indent=2))
         out_subfolder.mkdir(parents=True, exist_ok=True)
         while self.running:
             try:
@@ -112,94 +116,103 @@ class HotfolderWatcher:
             time.sleep(config.get("scan_interval", 10))
 
     def handle_hotfolder(self, folder, out_folder):
+        if self.debug:
+            self._debug_print(folder, "handle_hotfolder called.")
         # Never execute or import code from the hotfolder
         for f in folder.iterdir():
             if f.suffix in {'.py', '.pyc', '.pyo', '.sh', '.bash', '.zsh', '.pl', '.rb', '.php', '.js', '.exe', '.dll', '.so', '.dylib'}:
                 continue  # Just skip, never execute or import
         cleanup_processed_json(folder)
         config = get_effective_config(folder, self.global_config)
-        # Autoclean .DS_Store files if enabled
-        if config.get("autoclean", True):
-            for root, dirs, files in os.walk(folder):
-                for file in files:
-                    if file.lower() == ".ds_store":
-                        ds_path = Path(root) / file
-                        try:
-                            ds_path.unlink()
-                        except Exception as e:
-                            if self.debug:
-                                print(f"[WARNING] Could not remove {ds_path}: {e}")
         logger = get_hotfolder_logger(folder, retention_days=config.get("log_retention", 7))
         resting_time = config.get("resting_time", 300)
         dissolve_folders = config.get("dissolve_folders", False)
         metadata = config.get("metadata", False)
         metadata_field = config.get("metadata_field", None)
-        keep_files = config.get("keep_files", False)
-        ignore_updates = config.get("ignore_updates", False)
+        keep_copy = self.validate_bool(config.get("keep_copy", False), "keep_copy", False)
+        ignore_updates = self.validate_bool(config.get("ignore_updates", False), "ignore_updates", False)
+        retention = self.validate_bool(config.get("retention", False), "retention", False)
+        retention_cleanup_time = config.get("retention_cleanup_time", 1440)
         update_mtime = config.get("update_mtime", True)
         now = time.time()
-        files = [f for f in folder.iterdir() if not f.name.startswith('.')]
-        if not files:
-            return
-        # Log new arrivals
         config_dir = folder / ".config"
         processed = load_processed(config_dir)
         seen = load_seen(config_dir)
-        current_names = set(str(f.relative_to(folder)) for f in files)
-        processed_names = set(processed.keys())
-        seen_names = set(seen.keys())
-        new_arrivals = current_names - processed_names
-        updated = False
-        new_seen_entries = set()
+        files = [f for f in folder.iterdir() if not f.name.startswith('.')]
+        changed = False
         for f in files:
             rel = str(f.relative_to(folder))
+            # 1. Add to seen if new
             if rel not in seen:
                 seen[rel] = now
-                updated = True
-                new_seen_entries.add(rel)
-        # Clean up .seen.json for deleted files
-        removed_from_seen = seen_names - current_names
-        for rel in removed_from_seen:
-            del seen[rel]
-            updated = True
-        if updated:
+                changed = True
+                self.log_action(logger, folder, "ARRIVED", f"New file/folder: {rel}")
+            # 2. Check if stable
+            seen_time = seen[rel]
+            stable = (now - seen_time) >= resting_time
+            if stable:
+                # 3. If not processed, process and mark as processed
+                if rel not in processed:
+                    self._debug_print(folder, f"[PROCESSING] {rel} is stable, processing now.")
+                    moved_count = move_hotfolder_contents(
+                        folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_copy, ignore_updates, update_mtime)
+                    processed[rel] = {"processed_time": now}
+                    changed = True
+                    self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
+            # 4. Log status
+            processed_time = processed[rel]["processed_time"] if rel in processed else None
+            age = (now - processed_time) if processed_time else None
+            self._debug_print(folder, f"File: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: {processed_time}, age: {age if age is not None else 'N/A'}")
+        # 5. Retention cleanup
+        if retention and keep_copy and retention_cleanup_time > 0:
+            to_delete = []
+            for rel, entry in processed.items():
+                processed_time = entry.get("processed_time")
+                if processed_time and (now - processed_time) > (retention_cleanup_time * 60):
+                    to_delete.append(rel)
+            for rel in to_delete:
+                f = folder / rel
+                try:
+                    if f.is_dir():
+                        shutil.rmtree(f)
+                    else:
+                        f.unlink()
+                    self.log_action(logger, folder, "RETENTION", f"Deleted {rel} from IN after {retention_cleanup_time} minutes due to retention policy.")
+                    del processed[rel]
+                    if rel in seen:
+                        del seen[rel]
+                    changed = True
+                except Exception as e:
+                    self.log_action(logger, folder, "ERROR", f"Exception while deleting {rel}: {e}", level="error")
+                    logger.error(f"[RETENTION CLEANUP] Failed to delete {rel}: {e}")
+        # 6. Save state
+        if changed:
             save_seen(config_dir, seen)
-        for name in new_seen_entries:
-            logger.info(f"New file/folder arrived: {name}")
-            abs_path = folder / name
-            if abs_path.is_dir():
-                for root, dirs, files_in_dir in os.walk(abs_path):
-                    rel_root = Path(root).relative_to(folder)
-                    for d in dirs:
-                        logger.info(f"   Contains: {rel_root / d}/")
-                    for f_ in files_in_dir:
-                        logger.info(f"   Contains: {rel_root / f_}")
+            save_processed(config_dir, processed)
+        # Clean up processed/seen if empty
+        cleanup_processed_json(folder)
+
+    def _debug_print(self, folder, message):
         if self.debug:
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: files found: {[f.name for f in files]}")
-        # Find the most recent mtime for update detection
-        latest_mtime = max(f.stat().st_mtime for f in files)
-        # Use first seen time for resting logic
-        latest_seen = max(seen.get(str(f.relative_to(folder)), now) for f in files)
-        stable_at = latest_seen + resting_time
-        stable_dt = datetime.fromtimestamp(stable_at)
-        is_stable = now >= stable_at
-        last = self.last_status.get(str(folder), {})
-        try:
-            if is_stable:
-                if not last.get('stable', False):
-                    if self.debug:
-                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: STABLE, will pull now.")
-                moved_count = move_hotfolder_contents(folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_files, ignore_updates, update_mtime)
-                if moved_count > 0:
-                    logger.info(f"Folder {folder} is stable. Moving contents to {out_folder}.")
-                    logger.info(f"Move complete for {folder}. {moved_count} item(s) moved.")
-                self.last_status[str(folder)] = {'stable': True}
-            else:
-                if last.get('stable', True) or last.get('stable_at') != stable_at:
-                    if self.debug:
-                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Hotfolder {folder}: NOT STABLE, if stable will pull at {stable_dt}.")
-                self.last_status[str(folder)] = {'stable': False, 'stable_at': stable_at}
-                # Only log waiting if there are files to process
-                # logger.info(f"Folder {folder} is not yet stable. Waiting.")
-        except Exception as e:
-            logger.error(f"Error processing {folder}: {e}") 
+            ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"[DEBUG][{ts}][hotfolder: {folder}] {message}") 
+
+    def log_action(self, logger, folder, action, details, level="info"):
+        msg = f"[HOTFOLDER: {folder}] [{action}] {details}"
+        if level == "info":
+            logger.info(msg)
+        elif level == "warning":
+            logger.warning(msg)
+        elif level == "error":
+            logger.error(msg)
+        else:
+            logger.info(msg) 
+
+    def validate_bool(self, val, key, default):
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            if val.lower() in ("true", "yes", "1"): return True
+            if val.lower() in ("false", "no", "0"): return False
+        self._debug_print('global', f"[WARNING] {key} is not a valid boolean: {val}. Using default {default}.")
+        return default 

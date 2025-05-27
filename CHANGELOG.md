@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.0] - Major config and retention_cleanup_time cleanup update
+- Refactored config structure and naming for clarity and future-proofing
+- Added and validated new key: schedule.retention_cleanup_time (default: 1440 minutes)
+- Retention_cleanup_time now only affects files kept via keep_copy
+- Improved config validation and error reporting (prints in debug, logs for hotfolders)
+- **Strict config validation and type checks for all config fields (per-hotfolder and global). If any required key is missing or has the wrong type, hotfolder processing fails and an error is logged.**
+- **Retention_cleanup_time is now always in minutes (not seconds).**
+- Updated all documentation and config examples to match new structure
+- Bumped default version to 1.8.0
+
 ## [1.7.0] - Minor update
 - Feature: Add per-hotfolder and global config option mtime.update_mtime (default: false) to control whether jobs (files/folders) are 'touched' (mtime updated) after moving/copying to OUT. Helps avoid 1970-mtime masking issues in OUT folders. Fully documented and configurable. 
 
@@ -8,7 +18,7 @@
 - Bugfix: removed erroneous return statement that caused NameError in cleanup_processed_json
 
 ## [1.5.0] - Minor update
-- Clarified documentation for per-hotfolder config and keep_files behavior
+- Clarified documentation for per-hotfolder config and keep_copy behavior
 - Ensured correct copying/moving logic based on config
 
 ## [1.4.0] - Minor update

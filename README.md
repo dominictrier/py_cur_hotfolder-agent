@@ -1,6 +1,6 @@
 # Hotfolder System
 
-![version](https://img.shields.io/badge/version-1.7.0-blue)
+![version](https://img.shields.io/badge/version-1.8.0-blue)
 
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
@@ -25,11 +25,16 @@ Example:
   "hotfolders": [
     "/path/to/hotfolders/IN"
   ],
-  "timing": {
+  "schedule": {
     "scan_interval": 10,
-    "resting_time": 300
+    "resting_time": 300,
+    "retention_cleanup_time": 1440
   },
-  "flattening": {
+  "retention": {
+    "keep_copy": false,
+    "ignore_updates": false
+  },
+  "structure": {
     "dissolve_folders": false
   },
   "metadata": {
@@ -39,46 +44,49 @@ Example:
   "logging": {
     "log_retention": 7
   },
-  "buffering": {
-    "keep_files": false,
-    "ignore_updates": false
-  },
-  "cleaning": {
-    "autoclean": true
+  "auto_cleanup": {
+    "ds_store": true,
+    "retention": false
   },
   "mtime": {
     "update_mtime": false
+  },
+  "debugging": {
+    "debug": true
   }
 }
 ```
 - `hotfolders`: List of IN directories to monitor for hotfolders
-- `timing`: Timing-related options
+- `schedule`: Timing and cleanup schedule options
   - `scan_interval`: How often (in seconds) to rescan for new/removed hotfolders and poll each hotfolder
   - `resting_time`: Seconds a folder must be stable before processing
-- `flattening`:
+  - `retention_cleanup_time`: If set (number of **minutes**), and `auto_cleanup.retention` is true, files/folders in IN will be deleted after that many minutes since arrival. Default: 1440 (24 hours). Can be set globally or per-hotfolder.
+- `retention`: File retention/copying options
+  - `keep_copy`: If true, files/folders are copied (not moved) to OUT and originals remain in IN
+  - `ignore_updates`: If true, after a file/folder is processed once, future changes/additions are ignored
+- `structure`:
   - `dissolve_folders`: If true, flattens folder structure when moving/copying
 - `metadata`: Metadata options
   - `metadata`: If true, writes metadata to image files
   - `metadata_field`: The IPTC field to write the file path to (e.g., `Headline` or `IPTC:Headline`)
 - `logging`: Logging options
   - `log_retention`: Log retention in days
-- `buffering`: File retention/copying options
-  - `keep_files`: If true, files/folders are copied (not moved) to OUT and originals remain in IN
-  - `ignore_updates`: If true, after a file/folder is processed once, future changes/additions are ignored
-  - **Note:** Per-hotfolder config can override global config. To enable copying for a specific hotfolder, set `keep_files: true` in its `.config/config.json`.
-- `cleaning`: Cleaning-related options
-  - `autoclean`: If true, automatically removes `.DS_Store` files from hotfolders
+- `auto_cleanup`: Cleaning-related options
+  - `ds_store`: If true, automatically removes `.DS_Store` files from hotfolders (default: true)
+  - `retention`: If true, enables buffer_cleanup_time-based deletion of files/folders in IN after retention period.
 - `mtime`: File modification time options
   - `update_mtime`: If true, after moving/copying a job (file/folder) to OUT, its modification time (mtime) is updated ("touched").
     - Default: false. Enable to avoid 1970-mtime masking issues in OUT folders. Cannot change IN files' mtime.
     - Can be set globally or per-hotfolder.
+- `debugging`: Debugging options
+  - `debug`: If true, enables debugging mode
 
 ### Per-Hotfolder Config
 Each hotfolder can override any global config value by providing its own `.config/config.json` using the same grouped structure as above.
 If missing, a `.config/config.json.example` is created and the global config is used.
 
 ## Keep Files & Ignore Updates Logic
-- If `keep_files` is true:
+- If `keep_copy` is true:
   - Files/folders are **copied** to OUT, not moved.
   - Originals remain in IN.
 - If `ignore_updates` is true:
@@ -134,7 +142,7 @@ The project version is tracked in `src/hotfolder/__init__.py` as `__version__`. 
 
 ## Configuration Style
 
-All new configuration options should be grouped under a descriptive key (e.g., `cleaning`, `timing`, `logging`). This keeps the config organized and scalable.
+All new configuration options should be grouped under a descriptive key (e.g., `cleaning`, `interval`, `logging`). This keeps the config organized and scalable.
 
 ## Launchd Configuration
 
@@ -174,3 +182,5 @@ hotfolder/
 ```
 
 - For each subfolder `xxx` in the IN root, an OUT folder `xxx_out` is created as a sibling in the same IN root.
+
+## **Strict config validation**: All config fields are strictly type-checked and required in per-hotfolder configs. If any required key is missing or has the wrong type, hotfolder processing fails and an error is logged. Global config is only used if no per-hotfolder config is present.

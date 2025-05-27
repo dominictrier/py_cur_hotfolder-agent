@@ -5,38 +5,46 @@ GLOBAL_CONFIG_PATH = Path(__file__).parent.parent.parent / "config.json"
 
 # Grouped config keys and their subkeys
 GROUPED_KEYS = {
-    "timing": ["scan_interval", "resting_time"],
-    "flattening": ["dissolve_folders"],
+    "schedule": ["scan_interval", "resting_time", "retention_cleanup_time"],
+    "retention": ["keep_copy", "ignore_updates"],
+    "structure": ["dissolve_folders"],
     "metadata": ["metadata", "metadata_field"],
     "logging": ["log_retention"],
-    "buffering": ["keep_files", "ignore_updates"],
-    "debugging": ["debug"],
-    "mtime": ["update_mtime"]
+    "auto_cleanup": ["ds_store", "retention"],
+    "mtime": ["update_mtime"],
+    "debugging": ["debug"]
 }
 
 REQUIRED_FIELDS = [
+    "scan_interval",
     "resting_time",
+    "retention_cleanup_time",
+    "keep_copy",
+    "ignore_updates",
     "dissolve_folders",
     "metadata",
     "metadata_field",
     "log_retention",
-    "scan_interval",
-    "keep_files",
-    "ignore_updates"
+    "ds_store",
+    "retention",
+    "update_mtime",
+    "debug"
 ]
 
 DEFAULT_CONFIG = {
+    "scan_interval": 10,
     "resting_time": 300,
+    "retention_cleanup_time": 1440,
+    "keep_copy": False,
+    "ignore_updates": False,
     "dissolve_folders": False,
     "metadata": False,
     "metadata_field": "",
     "log_retention": 7,
-    "scan_interval": 10,
-    "keep_files": False,
-    "ignore_updates": False,
-    "autoclean": True,
-    "debug": True,
-    "update_mtime": False
+    "ds_store": True,
+    "retention": False,
+    "update_mtime": True,
+    "debug": False
 }
 
 def flatten_grouped_config(config):
@@ -47,6 +55,10 @@ def flatten_grouped_config(config):
         for key in keys:
             if key in group_val:
                 flat[key] = group_val[key]
+    # Flatten auto_cleanup group
+    if "auto_cleanup" in config:
+        flat["ds_store"] = config["auto_cleanup"].get("ds_store", True)
+        flat["retention"] = config["auto_cleanup"].get("retention", False)
     # Flatten debugging group
     if "debugging" in config:
         flat["debug"] = config["debugging"].get("debug", True)
@@ -70,6 +82,7 @@ def load_global_config():
     return DEFAULT_CONFIG
 
 def get_effective_config(hotfolder_path, global_config=None):
+    from hotfolder.logger import get_hotfolder_logger
     hotfolder_path = Path(hotfolder_path)
     config_dir = hotfolder_path / ".config"
     config_dir.mkdir(exist_ok=True)
@@ -82,11 +95,12 @@ def get_effective_config(hotfolder_path, global_config=None):
     example_config = {**DEFAULT_CONFIG, **base}
     # Regroup for example file
     grouped_example = {
-        "timing": {k: example_config[k] for k in GROUPED_KEYS["timing"]},
-        "flattening": {k: example_config[k] for k in GROUPED_KEYS["flattening"]},
+        "schedule": {k: example_config[k] for k in GROUPED_KEYS["schedule"]},
+        "retention": {k: example_config[k] for k in GROUPED_KEYS["retention"]},
+        "structure": {k: example_config[k] for k in GROUPED_KEYS["structure"]},
         "metadata": {k: example_config[k] for k in GROUPED_KEYS["metadata"]},
         "logging": {k: example_config[k] for k in GROUPED_KEYS["logging"]},
-        "buffering": {k: example_config[k] for k in GROUPED_KEYS["buffering"]},
+        "auto_cleanup": {k: example_config[k] for k in GROUPED_KEYS["auto_cleanup"]},
         "mtime": {k: example_config[k] for k in GROUPED_KEYS["mtime"]},
         "debugging": {k: example_config[k] for k in GROUPED_KEYS["debugging"]}
     }
@@ -94,8 +108,47 @@ def get_effective_config(hotfolder_path, global_config=None):
         with open(config_file, "r") as f:
             folder_config = json.load(f)
         flat_folder = flatten_grouped_config(folder_config)
-        merged = {**base, **flat_folder}
-        return validate_config(merged)
+        logger = get_hotfolder_logger(hotfolder_path)
+        # Strict validation: fail if any required key is missing or invalid
+        for key in REQUIRED_FIELDS:
+            if key not in flat_folder:
+                logger.error(f"[CONFIG ERROR] Missing required key '{key}' in per-hotfolder config for {hotfolder_path}. Failing hotfolder processing.")
+                raise ValueError(f"Missing required key '{key}' in per-hotfolder config for {hotfolder_path}")
+        # Type and value checks
+        type_checks = {
+            "scan_interval": int,
+            "resting_time": int,
+            "retention_cleanup_time": int,
+            "keep_copy": bool,
+            "ignore_updates": bool,
+            "dissolve_folders": bool,
+            "metadata": bool,
+            "metadata_field": str,
+            "log_retention": int,
+            "ds_store": bool,
+            "retention": bool,
+            "update_mtime": bool,
+            "debug": bool
+        }
+        for key, expected_type in type_checks.items():
+            val = flat_folder[key]
+            if not isinstance(val, expected_type):
+                logger.error(f"[CONFIG ERROR] Key '{key}' in per-hotfolder config for {hotfolder_path} has wrong type: expected {expected_type.__name__}, got {type(val).__name__}. Failing hotfolder processing.")
+                raise ValueError(f"Key '{key}' in per-hotfolder config for {hotfolder_path} has wrong type: expected {expected_type.__name__}, got {type(val).__name__}")
+        # Value checks (e.g., positive ints)
+        if flat_folder["scan_interval"] <= 0:
+            logger.error(f"[CONFIG ERROR] scan_interval must be > 0 in per-hotfolder config for {hotfolder_path}. Failing hotfolder processing.")
+            raise ValueError(f"scan_interval must be > 0 in per-hotfolder config for {hotfolder_path}")
+        if flat_folder["resting_time"] < 0:
+            logger.error(f"[CONFIG ERROR] resting_time must be >= 0 in per-hotfolder config for {hotfolder_path}. Failing hotfolder processing.")
+            raise ValueError(f"resting_time must be >= 0 in per-hotfolder config for {hotfolder_path}")
+        if flat_folder["retention_cleanup_time"] < 0:
+            logger.error(f"[CONFIG ERROR] retention_cleanup_time must be >= 0 in per-hotfolder config for {hotfolder_path}. Failing hotfolder processing.")
+            raise ValueError(f"retention_cleanup_time must be >= 0 in per-hotfolder config for {hotfolder_path}")
+        if flat_folder["log_retention"] < 0:
+            logger.error(f"[CONFIG ERROR] log_retention must be >= 0 in per-hotfolder config for {hotfolder_path}. Failing hotfolder processing.")
+            raise ValueError(f"log_retention must be >= 0 in per-hotfolder config for {hotfolder_path}")
+        return flat_folder
     else:
         # Create example config if not present
         if not example_file.exists():

@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 import os
 import json
+import time
 from hotfolder.utils import is_image_file, resolve_metadata_field
 from iptcinfo3 import IPTCInfo
 
@@ -68,7 +69,9 @@ def get_all_items(folder):
             items.append(str(rel))
     return items
 
-def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, metadata=False, metadata_field=None, logger=None, keep_files=False, ignore_updates=False, update_mtime=True):
+def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, metadata=False, metadata_field=None, logger=None, keep_copy=False, ignore_updates=False, update_mtime=True):
+    if logger:
+        logger.info(f"[DEBUG] move_hotfolder_contents called: src_folder={src_folder}, dst_folder={dst_folder}, keep_copy={keep_copy}, ignore_updates={ignore_updates}, update_mtime={update_mtime}")
     src_folder = Path(src_folder)
     dst_folder = Path(dst_folder)
     config_dir = src_folder / ".config"
@@ -83,29 +86,39 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
     moved_count = 0
     # For each item in src_folder
     for item in src_folder.iterdir():
+        if logger:
+            logger.info(f"[DEBUG] Processing item: {item}, is_dir={item.is_dir()}, keep_copy={keep_copy}")
         if item.name.startswith('.'):
             continue  # Skip .config, .log, etc.
         dest = dst_folder / item.name
         rel_path = str(item.relative_to(src_folder))
         mtime = item.stat().st_mtime
         already_processed = rel_path in processed and processed[rel_path] == mtime
-        if keep_files:
+        if keep_copy:
             if ignore_updates:
                 if already_processed:
+                    if logger:
+                        logger.info(f"[DEBUG] Skipping already processed item (ignore_updates): {item}")
                     continue  # Skip, already processed
             else:
                 # If not ignore_updates, re-copy if mtime changed
                 if already_processed:
                     # If mtime is the same, skip
+                    if logger:
+                        logger.info(f"[DEBUG] Skipping already processed item: {item}")
                     continue
         if item.is_dir():
             if dissolve_folders:
                 # TODO: Flatten and copy files only
                 pass
             else:
-                if keep_files:
+                if keep_copy:
+                    if logger:
+                        logger.info(f"[DEBUG] Copying directory: {item} -> {dest}")
                     shutil.copytree(str(item), str(dest), dirs_exist_ok=True)
                 else:
+                    if logger:
+                        logger.info(f"[DEBUG] Moving directory: {item} -> {dest}")
                     shutil.move(str(item), str(dest))
                 moved_count += 1
                 # Touch the folder after moving/copying if update_mtime is True
@@ -128,9 +141,13 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
                             logger.error(f"Could not resolve metadata_field '{metadata_field}' for {item}, processing anyway.")
                     else:
                         write_metadata(str(item), iptc_field, str(item.resolve()), logger)
-            if keep_files:
+            if keep_copy:
+                if logger:
+                    logger.info(f"[DEBUG] Copying file: {item} -> {dest}")
                 shutil.copy2(str(item), str(dest))
             else:
+                if logger:
+                    logger.info(f"[DEBUG] Moving file: {item} -> {dest}")
                 shutil.move(str(item), str(dest))
             moved_count += 1
             # Touch the file after moving/copying if update_mtime is True
@@ -140,8 +157,8 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
                 except Exception as e:
                     if logger:
                         logger.warning(f"Failed to update mtime for {dest}: {e}")
-        # Mark as processed
-        processed[rel_path] = mtime
+        # Mark as processed (always use dict with processed_time)
+        processed[rel_path] = {'processed_time': time.time()}
     # Always save the cleaned processed dict, even if nothing was moved
     save_processed(config_dir, processed)
     # Remove .processed.json and .seen.json if there are no more entries to monitor
@@ -151,19 +168,15 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
             processed_file.unlink()
             if logger:
                 logger.info("Removed .processed.json (no more files/folders to monitor)")
-        # Only remove .seen.json if the folder is empty and .seen.json is empty
+        # Remove .seen.json if the folder is empty (excluding .config and .log)
         seen_file = config_dir / ".seen.json"
         if seen_file.exists():
-            # Check if folder is empty (excluding .config and .log)
             non_hidden = [f for f in src_folder.iterdir() if not f.name.startswith('.')]
             if not non_hidden:
                 try:
-                    with open(seen_file, "r") as f:
-                        seen_data = json.load(f)
-                    if not seen_data:
-                        seen_file.unlink()
-                        if logger:
-                            logger.info("Removed .seen.json (no more files/folders to monitor)")
+                    seen_file.unlink()
+                    if logger:
+                        logger.info("Removed .seen.json (folder is empty)")
                 except Exception:
                     pass
     return moved_count
@@ -194,18 +207,14 @@ def cleanup_processed_json(hotfolder_path):
             processed_file.unlink()
             if logger:
                 logger.info("Removed .processed.json (no more files/folders to monitor)")
-        # Only remove .seen.json if the folder is empty and .seen.json is empty
+        # Remove .seen.json if the folder is empty (excluding .config and .log)
         seen_file = config_dir / ".seen.json"
         if seen_file.exists():
-            # Check if folder is empty (excluding .config and .log)
             non_hidden = [f for f in hotfolder_path.iterdir() if not f.name.startswith('.')]
             if not non_hidden:
                 try:
-                    with open(seen_file, "r") as f:
-                        seen_data = json.load(f)
-                    if not seen_data:
-                        seen_file.unlink()
-                        if logger:
-                            logger.info("Removed .seen.json (no more files/folders to monitor)")
+                    seen_file.unlink()
+                    if logger:
+                        logger.info("Removed .seen.json (folder is empty)")
                 except Exception:
                     pass

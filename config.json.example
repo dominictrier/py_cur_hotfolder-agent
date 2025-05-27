@@ -3,12 +3,18 @@
     "/path/to/hotfolders/IN"
   ],
 
-  "timing": {
+  "schedule": {
     "scan_interval": 10,
-    "resting_time": 300
+    "resting_time": 300,
+    "retention_cleanup_time": 1440
   },
 
-  "flattening": {
+  "retention": {
+    "keep_copy": false,
+    "ignore_updates": false
+  },
+
+  "structure": {
     "dissolve_folders": false
   },
 
@@ -21,20 +27,16 @@
     "log_retention": 7
   },
 
-  "buffering": {
-    "keep_files": false,
-    "ignore_updates": false
-  },
-      
-    "cleaning": {
-      "autoclean": true
-    },
-
-  "debugging": {
-    "debug": true
+  "auto_cleanup": {
+    "ds_store": true,
+    "retention": false
   },
 
   "mtime": {
     "update_mtime": false
+  },
+
+  "debugging": {
+    "debug": false
   }
 } 

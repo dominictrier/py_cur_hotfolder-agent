@@ -33,3 +33,6 @@ example-hotfolders/OUT/
 
 # Ignore macOS metadata files
 .DS_Store
+
+# cursor rules
+.cursor/
