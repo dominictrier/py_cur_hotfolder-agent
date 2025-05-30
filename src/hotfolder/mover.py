@@ -1,59 +1,45 @@
 import shutil
 from pathlib import Path
 import os
-import json
 import time
-from hotfolder.utils import is_image_file, resolve_metadata_field
+from hotfolder.utils import is_image_file
 from iptcinfo3 import IPTCInfo
 
 def write_metadata(file_path, metadata_field, value, logger):
     try:
         info = IPTCInfo(file_path, force=True)
-        # Remove 'IPTC:' prefix for iptcinfo3
-        field = metadata_field.split(':')[-1]
-        info[field] = value
-        info.save()
-        logger.info(f"Wrote metadata {metadata_field}='{value}' to {file_path}")
+        field = metadata_field
+        # Try as provided
+        try:
+            info[field] = value
+            info.save()
+            logger.info(f"Wrote metadata '{field}'='{value}' to {file_path}")
+            logger.debug(f"[METADATA] Used provided field '{field}' for {file_path}")
+            return
+        except Exception as e:
+            logger.debug(f"[METADATA] Provided field '{field}' failed for {file_path}: {e}")
+        # Fallback: scan for a matching key
+        found_key = None
+        for k in info._data.keys():
+            if k.lower() == field.lower() or field.lower() in k.lower():
+                found_key = k
+                break
+        if found_key:
+            try:
+                info[found_key] = value
+                info.save()
+                logger.info(f"Wrote metadata '{found_key}'='{value}' to {file_path} (using fallback for '{field}')")
+                logger.debug(f"[METADATA] Provided field '{field}' not found, used '{found_key}' for {file_path}")
+                return
+            except Exception as e:
+                logger.error(f"Failed to write metadata to {file_path} using fallback key '{found_key}': {e}")
+                logger.debug(f"[METADATA] Fallback field '{found_key}' failed for {file_path}: {e}")
+        # If still not found
+        logger.error(f"Failed to write metadata: field '{field}' not found in {file_path}. Available keys: {list(info._data.keys())}")
+        logger.debug(f"[METADATA] No matching field for '{field}' in {file_path}. Skipping metadata write.")
     except Exception as e:
-        logger.error(f"Failed to write metadata to {file_path}: {e}")
-
-def load_processed(config_dir):
-    config_dir.mkdir(exist_ok=True)
-    processed_file = config_dir / ".processed.json"
-    if processed_file.exists():
-        try:
-            with open(processed_file, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-def save_processed(config_dir, processed):
-    config_dir.mkdir(exist_ok=True)
-    processed_file = config_dir / ".processed.json"
-    if processed:
-        with open(processed_file, "w") as f:
-            json.dump(processed, f, indent=2)
-    else:
-        if processed_file.exists():
-            processed_file.unlink()
-
-def load_seen(config_dir):
-    config_dir.mkdir(exist_ok=True)
-    seen_file = config_dir / ".seen.json"
-    if seen_file.exists():
-        try:
-            with open(seen_file, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-def save_seen(config_dir, seen):
-    config_dir.mkdir(exist_ok=True)
-    seen_file = config_dir / ".seen.json"
-    with open(seen_file, "w") as f:
-        json.dump(seen, f, indent=2)
+        logger.error(f"Failed to open or process {file_path} for metadata: {e}")
+        logger.debug(f"[METADATA] Exception in write_metadata for {file_path}: {e}")
 
 def get_all_items(folder):
     # Recursively get all files and folders (relative to folder)
@@ -74,16 +60,8 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
         logger.info(f"move_hotfolder_contents called: src_folder={src_folder}, dst_folder={dst_folder}, keep_copy={keep_copy}, ignore_updates={ignore_updates}, update_mtime={update_mtime}, ds_store={ds_store}, thumbs_db={thumbs_db}")
     src_folder = Path(src_folder)
     dst_folder = Path(dst_folder)
-    config_dir = src_folder / ".config"
-    processed = load_processed(config_dir)
-    current_items = get_all_items(src_folder)
-    # Clean up processed: remove entries for files/folders no longer in IN
-    removed_entries = set(processed.keys()) - set(current_items)
-    if removed_entries and logger:
-        for entry in removed_entries:
-            logger.info(f"Removed entry from .processed.json (file/folder missing): {entry}")
-    processed = {k: v for k, v in processed.items() if k in current_items}
     moved_count = 0
+    marked_for_deletion = []
     # For each item in src_folder
     for item in src_folder.iterdir():
         if logger:
@@ -98,29 +76,55 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
         dest = dst_folder / item.name
         rel_path = str(item.relative_to(src_folder))
         mtime = item.stat().st_mtime
-        already_processed = rel_path in processed and processed[rel_path] == mtime
-        if keep_copy:
-            if ignore_updates:
-                if already_processed:
-                    if logger:
-                        logger.info(f"Skipping already processed item (ignore_updates): {item}")
-                    continue  # Skip, already processed
+        if item.is_file():
+            if keep_copy:
+                if logger:
+                    logger.info(f"Copying file: {item} -> {dest}")
+                shutil.copy2(str(item), str(dest))
             else:
-                # If not ignore_updates, re-copy if mtime changed
-                if already_processed:
-                    # If mtime is the same, skip
+                if logger:
+                    logger.info(f"Moving file: {item} -> {dest}")
+                shutil.move(str(item), str(dest))
+            moved_count += 1
+            if update_mtime:
+                try:
+                    os.utime(str(dest), None)
+                except Exception as e:
                     if logger:
-                        logger.info(f"Skipping already processed item: {item}")
-                    continue
-        if item.is_dir():
+                        logger.warning(f"Failed to update mtime for {dest}: {e}")
+        elif item.is_dir():
             if dissolve_folders:
-                # TODO: Flatten and copy files only
-                pass
+                # Flatten: move/copy all files in this subfolder directly to dst_folder
+                for root, dirs, files in os.walk(item):
+                    for fname in files:
+                        if (ds_store and fname == '.DS_Store') or (thumbs_db and fname.lower() == 'thumbs.db'):
+                            if logger:
+                                logger.info(f"Skipping system file: {fname}")
+                            continue
+                        src_file = Path(root) / fname
+                        dest_file = dst_folder / fname
+                        if keep_copy:
+                            if logger:
+                                logger.info(f"Copying file (dissolve): {src_file} -> {dest_file}")
+                            shutil.copy2(str(src_file), str(dest_file))
+                        else:
+                            if logger:
+                                logger.info(f"Moving file (dissolve): {src_file} -> {dest_file}")
+                            shutil.move(str(src_file), str(dest_file))
+                        moved_count += 1
+                        if update_mtime:
+                            try:
+                                os.utime(str(dest_file), None)
+                            except Exception as e:
+                                if logger:
+                                    logger.warning(f"Failed to update mtime for {dest_file}: {e}")
+                # After moving/copying, if the folder is now empty, mark for deletion
+                if not any(item.iterdir()):
+                    marked_for_deletion.append(item.name)
             else:
                 if keep_copy:
                     if logger:
                         logger.info(f"Copying directory: {item} -> {dest}")
-                    # Custom copytree to skip .DS_Store and Thumbs.db if enabled
                     def ignore_system_files(dir, files):
                         ignore = []
                         if ds_store:
@@ -132,7 +136,6 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
                 else:
                     if logger:
                         logger.info(f"Moving directory: {item} -> {dest}")
-                    # Move, then remove .DS_Store and Thumbs.db from dest if enabled
                     shutil.move(str(item), str(dest))
                     for root, dirs, files in os.walk(dest):
                         for f in files:
@@ -145,104 +148,11 @@ def move_hotfolder_contents(src_folder, dst_folder, dissolve_folders=False, meta
                                     if logger:
                                         logger.warning(f"Failed to remove system file from OUT: {e}")
                 moved_count += 1
-                # Touch the folder after moving/copying if update_mtime is True
                 if update_mtime:
                     try:
                         os.utime(str(dest), None)
                     except Exception as e:
                         if logger:
                             logger.warning(f"Failed to update mtime for {dest}: {e}")
-        else:
-            # METADATA HANDLING
-            if (ds_store and item.name == '.DS_Store') or (thumbs_db and item.name.lower() == 'thumbs.db'):
-                if logger:
-                    logger.info(f"Skipping system file: {item}")
-                continue
-            if metadata and is_image_file(item):
-                if not metadata_field:
-                    if logger:
-                        logger.error(f"No metadata_field provided for {item}, cannot write metadata, processing anyway.")
-                else:
-                    iptc_field = resolve_metadata_field(metadata_field)
-                    if not iptc_field:
-                        if logger:
-                            logger.error(f"Could not resolve metadata_field '{metadata_field}' for {item}, processing anyway.")
-                    else:
-                        write_metadata(str(item), iptc_field, str(item.resolve()), logger)
-            if keep_copy:
-                if logger:
-                    logger.info(f"Copying file: {item} -> {dest}")
-                shutil.copy2(str(item), str(dest))
-            else:
-                if logger:
-                    logger.info(f"Moving file: {item} -> {dest}")
-                shutil.move(str(item), str(dest))
-            moved_count += 1
-            # Touch the file after moving/copying if update_mtime is True
-            if update_mtime:
-                try:
-                    os.utime(str(dest), None)
-                except Exception as e:
-                    if logger:
-                        logger.warning(f"Failed to update mtime for {dest}: {e}")
-        # Mark as processed (always use dict with processed_time)
-        processed[rel_path] = {'processed_time': time.time()}
-    # Always save the cleaned processed dict, even if nothing was moved
-    save_processed(config_dir, processed)
-    # Remove .processed.json and .seen.json if there are no more entries to monitor
-    if not processed:
-        processed_file = config_dir / ".processed.json"
-        if processed_file.exists():
-            processed_file.unlink()
-            if logger:
-                logger.info("Removed .processed.json (no more files/folders to monitor)")
-        # Remove .seen.json if the folder is empty (excluding .config and .log)
-        seen_file = config_dir / ".seen.json"
-        if seen_file.exists():
-            non_hidden = [f for f in src_folder.iterdir() if not f.name.startswith('.')]
-            if not non_hidden:
-                try:
-                    seen_file.unlink()
-                    if logger:
-                        logger.info("Removed .seen.json (folder is empty)")
-                except Exception:
-                    pass
-    return moved_count
+    return moved_count, marked_for_deletion
     # TODO: Handle more metadata if needed 
-
-def cleanup_processed_json(hotfolder_path):
-    hotfolder_path = Path(hotfolder_path)
-    config_dir = hotfolder_path / ".config"
-    processed = load_processed(config_dir)
-    current_items = get_all_items(hotfolder_path)
-    # Clean up processed: remove entries for files/folders no longer in IN
-    removed_entries = set(processed.keys()) - set(current_items)
-    logger = None
-    try:
-        from hotfolder.logger import get_hotfolder_logger
-        logger = get_hotfolder_logger(hotfolder_path)
-    except Exception:
-        pass
-    if removed_entries and logger:
-        for entry in removed_entries:
-            logger.info(f"Removed entry from .processed.json (file/folder missing): {entry}")
-    processed = {k: v for k, v in processed.items() if k in current_items}
-    save_processed(config_dir, processed)
-    # Remove .processed.json and .seen.json if there are no more entries to monitor
-    if not processed:
-        processed_file = config_dir / ".processed.json"
-        if processed_file.exists():
-            processed_file.unlink()
-            if logger:
-                logger.info("Removed .processed.json (no more files/folders to monitor)")
-        # Remove .seen.json if the folder is empty (excluding .config and .log)
-        seen_file = config_dir / ".seen.json"
-        if seen_file.exists():
-            non_hidden = [f for f in hotfolder_path.iterdir() if not f.name.startswith('.')]
-            if not non_hidden:
-                try:
-                    seen_file.unlink()
-                    if logger:
-                        logger.info("Removed .seen.json (folder is empty)")
-                except Exception:
-                    pass

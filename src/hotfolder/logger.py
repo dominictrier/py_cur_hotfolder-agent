@@ -23,11 +23,16 @@ class OnDemandFileHandler(logging.Handler):
         self.inner_handler.emit(record)
 
 def get_hotfolder_logger(hotfolder_path, retention_days=7):
-    hotfolder_path = Path(hotfolder_path)
-    log_dir = hotfolder_path / ".log"
-    log_file = log_dir / f"{hotfolder_path.name}.log"
+    # Special handling for global logger
+    if hotfolder_path == "global":
+        log_dir = Path("logs")
+        log_file = log_dir / "global.log"
+    else:
+        hotfolder_path = Path(hotfolder_path)
+        log_dir = hotfolder_path / ".log"
+        log_file = log_dir / f"{hotfolder_path.name}.log"
 
-    logger = logging.getLogger(f"hotfolder.{hotfolder_path.name}")
+    logger = logging.getLogger(f"hotfolder.{hotfolder_path}")
     logger.setLevel(logging.INFO)
     # Remove all handlers to avoid duplicate logs if re-instantiated
     logger.handlers = []

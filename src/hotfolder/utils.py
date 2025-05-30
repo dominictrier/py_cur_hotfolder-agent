@@ -23,16 +23,6 @@ def is_image_file(file_path):
     image_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
     return Path(file_path).suffix.lower() in image_exts
 
-def resolve_metadata_field(field):
-    # Map common field names to IPTC fields
-    iptc_map = {
-        'headline': 'IPTC:Headline',
-        'IPTC:Headline': 'IPTC:Headline',
-        # Add more mappings as needed
-    }
-    key = field.strip().lower()
-    return iptc_map.get(key, None)
-
 def normalize_path(path_str):
     """
     Fixes escaped spaces in paths (e.g., replaces '\\ ' with ' ').

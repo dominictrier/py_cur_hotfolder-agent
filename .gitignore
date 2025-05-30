@@ -1,38 +1,20 @@
-# Python VENV
+# Python virtual environment
 venv/
 
-# Python Cache
+# Python cache
 __pycache__/
 
-# Python Logs
+# Logs
 logs/
 
-# Python Data
-data/
-
-# Global Config
-/config.json
-
-# Hotfolder Configs
-hotfolders/IN/example1/.config/config.json
-
-# Heartbeat
+# Heartbeat files
 heartbeat/
-heartbeat.txt
 
-# Hotfolder logs and configs
-example-hotfolders/IN/*/.log/
-example-hotfolders/IN/*/.config/
-example-hotfolders/OUT/
-
-# State files
-**/.processed.json
-
-# Output folders (if you want to ignore all OUT data)
-example-hotfolders/OUT/
+# Global config (user-specific, not example)
+config.yml
 
 # Ignore macOS metadata files
 .DS_Store
 
-# cursor rules
+# Cursor rules
 .cursor/

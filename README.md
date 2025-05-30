@@ -7,7 +7,7 @@ This Python hotfolder system monitors one or more input directories for new file
 
 ## Features
 - Monitors multiple hotfolder roots (IN directories) for new subfolders (hotfolders)
-- Each hotfolder can have its own `.config/config.json` and `.log` directory
+- Each hotfolder can have its own `.config/config.yml` and `.log` directory
 - Configurable resting time (stability before processing)
 - Automatic creation of config example files
 - Logging with rotation and retention
@@ -19,85 +19,91 @@ This Python hotfolder system monitors one or more input directories for new file
 
 ## Configuration
 
-### Global Config (`config.json`)
-Example:
-```json
-{
-  "hotfolders": [
-    "/path/to/hotfolders/IN"
-  ],
-  "schedule": {
-    "scan_interval": 10,
-    "resting_time": 300,
-    "retention_cleanup_time": 1440
-  },
-  "retention": {
-    "keep_copy": false,
-    "ignore_updates": false
-  },
-  "structure": {
-    "dissolve_folders": false
-  },
-  "metadata": {
-    "metadata": false,
-    "metadata_field": ""
-  },
-  "logging": {
-    "log_retention": 7
-  },
-  "auto_cleanup": {
-    "ds_store": true,
-    "thumbs_db": true,
-    "retention": false
-  },
-  "mtime": {
-    "update_mtime": false
-  },
-  "debugging": {
-    "debug": true
-  }
-}
+### Global Config (`config.yml`)
+
+The global config is a YAML file with grouped settings. Example:
+
+```yaml
+hotfolders:
+  - /path/to/hotfolders/IN
+schedule:
+  scan_interval: 10
+  resting_time: 1800
+retention:
+  cleanup: true
+  keep_copy: true
+  cleanup_time: 2880
+structure:
+  dissolve_folders: false
+metadata:
+  enabled: false
+  field: ""
+auto_cleanup:
+  ds_store: true
+  thumbs_db: true
+mtime:
+  update_mtime: true
+logging:
+  log_retention: 7
+debugging:
+  debug: true
 ```
-- `hotfolders`: List of IN directories to monitor for hotfolders
-- `schedule`: Timing and cleanup schedule options
-  - `scan_interval`: How often (in seconds) to rescan for new/removed hotfolders and poll each hotfolder
-  - `resting_time`: Seconds a folder must be stable before processing
-  - `retention_cleanup_time`: If set (number of **minutes**), and `auto_cleanup.retention` is true, files/folders in IN will be deleted after that many minutes since arrival. Default: 1440 (24 hours). Can be set globally or per-hotfolder.
-- `retention`: File retention/copying options
-  - `keep_copy`: If true, files/folders are copied (not moved) to OUT and originals remain in IN
-  - `ignore_updates`: If true, after a file/folder is processed once, future changes/additions are ignored
-- `structure`:
-  - `dissolve_folders`: If true, flattens folder structure when moving/copying
-- `metadata`: Metadata options
-  - `metadata`: If true, writes metadata to image files
-  - `metadata_field`: The IPTC field to write the file path to (e.g., `Headline` or `IPTC:Headline`)
-- `logging`: Logging options
-  - `log_retention`: Log retention in days
-- `auto_cleanup`: Cleaning-related options
-  - `ds_store`: If true, automatically skips `.DS_Store` files when copying/moving to OUT (default: true)
-  - `thumbs_db`: If true, automatically skips `thumbs.db` files (any case) when copying/moving to OUT (default: true)
-  - `retention`: If true, enables buffer_cleanup_time-based deletion of files/folders in IN after retention period.
-- `mtime`: File modification time options
-  - `update_mtime`: If true, after moving/copying a job (file/folder) to OUT, its modification time (mtime) is updated ("touched").
-    - Default: false. Enable to avoid 1970-mtime masking issues in OUT folders. Cannot change IN files' mtime.
-    - Can be set globally or per-hotfolder.
-- `debugging`: Debugging options
-  - `debug`: If true, enables debugging mode
 
 ### Per-Hotfolder Config
-Each hotfolder can override any global config value by providing its own `.config/config.json` using the same grouped structure as above.
-If missing, a `.config/config.json.example` is created and the global config is used.
+
+Each hotfolder can override any global config value by providing its own `.config/config.yml` using the same grouped structure as above.
+If missing, a `.config/config.yml.example` is created and the global config is used.
+
+### State Management
+
+- State is tracked in a SQLite database (`.hotfolder_state.db`) in each hotfolder.
+- No `.seen.json` or `.processed.json` files are used.
+- All job and file tracking is robust, auditable, and local to each hotfolder.
+
+### Logging
+
+- Logs are written to `.log/<hotfolder>.log` in each hotfolder.
+- Debug logs are written to `.log/<hotfolder>.debug.log` if debug is enabled.
+
+### Example Directory Structure
+
+```
+hotfolder_test/
+  test1/
+    .config/
+      config.yml
+      config.yml.example
+    .log/
+      test1.log
+      test1.debug.log
+    .hotfolder_state.db
+  test1_out/
+  test2/
+    .config/
+      config.yml
+      config.yml.example
+    .log/
+      test2.log
+      test2.debug.log
+    .hotfolder_state.db
+```
+
+### Notes
+
+- All configuration is now YAML-based.
+- All state is managed in SQLite, not JSON files.
+- OUT folders and config examples are created automatically for each detected hotfolder.
 
 ## Keep Files & Ignore Updates Logic
 - If `keep_copy` is true:
   - Files/folders are **copied** to OUT, not moved.
   - Originals remain in IN.
 - If `ignore_updates` is true:
-  - After a file/folder is processed (copied), future changes/additions are ignored.
-  - If a file/folder is deleted from IN, it is also removed from the `.processed.json` tracking file.
+  - After a file/folder is processed once, future changes/additions are ignored.
+  - If a file/folder is deleted from IN, it is also removed from the `.hotfolder_state.db` tracking file.
 - If `ignore_updates` is false:
   - If a file/folder is updated or a new file is added, the whole folder is copied again after the new resting time is up.
-- The `.processed.json` and `.seen.json` files in each hotfolder's `.config` directory track what has been processed and when files/folders were first seen. These files are now robustly cleaned up only when the folder is truly empty, preventing repeated log messages and ensuring correct state tracking.
+- The `.hotfolder_state.db` file in each hotfolder's `.config` directory tracks what has been processed and when files/folders were first seen. This file is now robustly cleaned up only when the folder is truly empty, preventing repeated log messages and ensuring correct state tracking.
 
 ## Metadata Feature
 - If `metadata` is `true` and the file is an image (`.jpg`, `.jpeg`, `.png`, `.tif`, `.tiff`):
@@ -132,7 +138,7 @@ python3 src/main.py
 - Paths with spaces are supported (escaped or unescaped).
 
 ## Troubleshooting
-- Ensure all config fields are present in `config.json` and per-hotfolder configs.
+- Ensure all config fields are present in `config.yml` and per-hotfolder configs.
 - Check logs in each hotfolder's `.log` directory for errors.
 - If a hotfolder is not detected, ensure it is a direct subfolder of the IN directory and not hidden.
 
