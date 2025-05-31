@@ -8,6 +8,7 @@ from pathlib import Path
 import threading
 from datetime import datetime, timedelta
 import sys
+import shutil
 from hotfolder.state_db import HotfolderStateDB
 import yaml
 
@@ -42,7 +43,8 @@ class HotfolderWatcher:
             self._debug_print('global', "Starting dynamic hotfolder watcher...", debug_enabled=self.debug)
         heartbeat_enabled = self.global_config.get("heartbeat_enabled", False)
         if heartbeat_enabled:
-            heartbeat_dir = Path(__file__).parent.parent.parent / "heartbeat"
+            # Place heartbeat in project root
+            heartbeat_dir = Path(__file__).parent.parent / "heartbeat"
             heartbeat_dir.mkdir(exist_ok=True)
             heartbeat_file = heartbeat_dir / "heartbeat.txt"
         try:
