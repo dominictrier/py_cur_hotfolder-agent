@@ -37,7 +37,3 @@ logging:
 # === Debugging ===
 debugging:
   debug: false                # Enable debug logging
-
-# === Heartbeat ===
-heartbeat:
-  heartbeat_enabled: false   # Enable writing a heartbeat.txt file for external monitoring
