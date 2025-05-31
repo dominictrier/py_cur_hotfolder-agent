@@ -97,15 +97,6 @@ class HotfolderWatcher:
             for folder in removed:
                 if self.debug:
                     self._debug_print(folder, "Hotfolder removed or no longer exists.", debug_enabled=self.debug)
-                # Remove OUT subfolder if empty
-                in_folder = Path(folder)
-                out_subfolder = in_folder.parent / f"{in_folder.name}_out"
-                if out_subfolder.exists() and out_subfolder.is_dir():
-                    try:
-                        if not any(out_subfolder.iterdir()):
-                            out_subfolder.rmdir()
-                    except Exception:
-                        pass
                 del self.threads[folder]
         if self.debug:
             self._debug_print('global', f"Currently watched hotfolders: {list(self.threads.keys())}", debug_enabled=self.debug)
