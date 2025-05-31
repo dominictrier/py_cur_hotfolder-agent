@@ -207,7 +207,7 @@ def get_effective_config(hotfolder_path, global_config=None):
             "keep_copy": bool,
             "cleanup_time": int,
             "dissolve_folders": bool,
-            "metadata": bool,
+            "inject_folder_name": bool,
             "metadata_field": str,
             "log_retention": int,
             "ds_store": bool,

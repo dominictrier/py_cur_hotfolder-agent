@@ -107,17 +107,18 @@ class HotfolderWatcher:
         debug_enabled = hotfolder_debug
         if debug_enabled:
             ordered_config = generate_example_config_dict(include_hotfolders=False, example_config=config)
-            print(f"[DEBUG][hotfolder: {folder}] Effective config loaded (per-hotfolder):\n{yaml.safe_dump(dict(ordered_config), indent=2, sort_keys=False)}")
+            folder_name = folder.name if hasattr(folder, 'name') else str(folder)
+            print(f"[DEBUG][hotfolder: {folder_name}] Effective config loaded (per-hotfolder):\n{yaml.safe_dump(dict(ordered_config), indent=2, sort_keys=False)}")
         out_subfolder.mkdir(parents=True, exist_ok=True)
         while self.running:
             try:
                 self.handle_hotfolder(folder, out_subfolder, hotfolder_debug)
             except FileNotFoundError as e:
-                # Only suppress/log as debug if the missing path is the folder itself
+                # Only suppress/log as debug if the missing path is the folder itself or a direct subfolder (job folder)
                 missing_path = Path(getattr(e, 'filename', ''))
-                if missing_path == folder:
+                if missing_path == folder or missing_path.parent == folder:
                     if hotfolder_debug:
-                        self._debug_print(folder, f"[SKIP] Folder not found during scan: {e}", debug_enabled=hotfolder_debug)
+                        self._debug_print(folder, f"[SKIP] Folder or job folder not found during scan (likely just moved): {e}", debug_enabled=hotfolder_debug)
                     # Do not log as error
                 else:
                     logger = get_hotfolder_logger(folder)
@@ -374,6 +375,11 @@ class HotfolderWatcher:
                         self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
                         if debug_enabled:
                             self._debug_print(folder, f"[PROCESSED] Processed {rel}, moved_count={moved_count}", debug_enabled=debug_enabled)
+                        # After moving, check if folder still exists
+                        if not f_path.exists():
+                            if debug_enabled:
+                                self._debug_print(folder, f"[INFO] Folder {f_path} was moved and no longer exists. Exiting processing loop.", debug_enabled=debug_enabled)
+                            return
             # 4. Log status
             processed_time = processed.get(rel, {}).get("processed_time")
             age = (now - processed_time) if processed_time else None
@@ -452,6 +458,7 @@ class HotfolderWatcher:
         # folder: 'global' or hotfolder path
         global_debug = self.debug
         per_hotfolder_debug = False
+        folder_name = folder if folder == 'global' else Path(folder).name
         if folder != 'global':
             # Get per-hotfolder debug setting
             config = get_effective_config(folder, self.global_config)
@@ -466,7 +473,7 @@ class HotfolderWatcher:
         else:
             if per_hotfolder_debug:
                 ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                debug_msg = f"[DEBUG][{ts}][hotfolder: {folder}] {message}"
+                debug_msg = f"[DEBUG][{ts}][hotfolder: {folder_name}] {message}"
                 print(debug_msg)
                 debug_logger = get_hotfolder_debug_logger(folder)
                 debug_logger.debug(message)

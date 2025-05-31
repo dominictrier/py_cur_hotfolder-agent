@@ -9,7 +9,7 @@ schedule:
 # === Retention Policy ===
 retention:
   keep_copy: false             # Keep a copy of jobs in IN after processing
-  cleanup: true               # Perform retention cleanup after jobs are processed
+  cleanup: false              # Perform retention cleanup after jobs are processed
   cleanup_time: 1440          # Minutes to keep jobs in IN after processing
 
 # === Folder Structure ===
