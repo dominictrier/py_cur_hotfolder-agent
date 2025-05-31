@@ -41,12 +41,15 @@ class HotfolderWatcher:
         self.running = True
         if self.debug:
             self._debug_print('global', "Starting dynamic hotfolder watcher...", debug_enabled=self.debug)
-        heartbeat_enabled = self.global_config.get("heartbeat_enabled", False)
-        if heartbeat_enabled:
-            # Place heartbeat in project root
-            heartbeat_dir = Path(__file__).parent.parent / "heartbeat"
-            heartbeat_dir.mkdir(exist_ok=True)
-            heartbeat_file = heartbeat_dir / "heartbeat.txt"
+        # --- Heartbeat: only support nested config ---
+        heartbeat_enabled = False
+        if "heartbeat" in self.global_config and isinstance(self.global_config["heartbeat"], dict):
+            heartbeat_enabled = self.global_config["heartbeat"].get("heartbeat_enabled", False)
+        # Place heartbeat in project root
+        project_root = Path(__file__).parent.parent.resolve()
+        heartbeat_dir = project_root / "heartbeat"
+        heartbeat_dir.mkdir(exist_ok=True)
+        heartbeat_file = heartbeat_dir / "heartbeat.txt"
         try:
             while self.running:
                 try:
@@ -337,7 +340,7 @@ class HotfolderWatcher:
                             shutil.copy2(str(sf), str(out_path))
                             moved_count += 1
                             if debug_enabled:
-                                self._debug_print(folder, f"[PER-FILE] Copied {srel} to OUT.", debug_enabled=debug_enabled)
+                                self._debug_print(folder, f"[PER-FILE] Copied {srel} to OUT (resting_time={resting_time}, stable={stable}).", debug_enabled=debug_enabled)
                         # Update processed entry
                         for _, srel, smtime in to_process:
                             # Ensure processed_time is set

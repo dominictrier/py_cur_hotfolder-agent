@@ -79,7 +79,7 @@ DEFAULT_CONFIG = {
     "thumbs_db": True,
 }
 
-def flatten_grouped_config(config):
+def flatten_grouped_config(config, *, global_only=False):
     flat = dict(config)
     for group, keys in GROUPED_KEYS.items():
         group_val = config.get(group, {})
@@ -93,6 +93,15 @@ def flatten_grouped_config(config):
             for key in keys:
                 if key in group_val:
                     flat[key] = group_val[key]
+    if not global_only and "heartbeat" in config:
+        # Do NOT flatten heartbeat for per-hotfolder config
+        pass
+    elif global_only and "heartbeat" in config:
+        # Only flatten heartbeat for global config
+        group_val = config["heartbeat"]
+        if isinstance(group_val, dict):
+            for k, v in group_val.items():
+                flat[k] = v
     if "auto_cleanup" in config:
         flat["ds_store"] = config["auto_cleanup"].get("ds_store", True)
         flat["thumbs_db"] = config["auto_cleanup"].get("thumbs_db", True)
@@ -116,7 +125,7 @@ def load_global_config():
     if GLOBAL_CONFIG_PATH.exists():
         with open(GLOBAL_CONFIG_PATH, "r") as f:
             config = yaml.safe_load(f)
-        flat = flatten_grouped_config(config)
+        flat = flatten_grouped_config(config, global_only=True)
         return flat
     return DEFAULT_CONFIG
 
@@ -190,8 +199,11 @@ def get_effective_config(hotfolder_path, global_config=None):
     example_file = config_dir / "config.yml.example"
     base = dict(global_config or load_global_config())
     base.pop("hotfolders", None)
+    # Remove heartbeat from per-hotfolder config
+    base.pop("heartbeat", None)
+    base.pop("heartbeat_enabled", None)
     example_config = {**DEFAULT_CONFIG, **base}
-    # Per-hotfolder config example: no hotfolders group, with comments
+    # Per-hotfolder config example: no hotfolders group, with comments, and NO heartbeat
     grouped_example = generate_example_config_dict(include_hotfolders=False, example_config=example_config)
     if config_file.exists():
         with open(config_file, "r") as f:
@@ -239,5 +251,7 @@ def get_effective_config(hotfolder_path, global_config=None):
         if not example_file.exists():
             with open(example_file, "w") as f:
                 # Write example config with headlines and empty lines, but no inline comments
+                # NO heartbeat in per-hotfolder config.example
+                grouped_example.pop("heartbeat", None)
                 f.write(dump_with_headlines_no_comments(grouped_example))
         return base 
