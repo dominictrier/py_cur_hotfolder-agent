@@ -1,6 +1,6 @@
 # Hotfolder System
 
-![version](https://img.shields.io/badge/version-1.8.0-blue)
+![version](https://img.shields.io/badge/version-1.9.2-blue)
 
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
@@ -47,6 +47,8 @@ logging:
   log_retention: 7
 debugging:
   debug: true
+heartbeat:
+  heartbeat_enabled: false
 ```
 
 ### Per-Hotfolder Config
@@ -149,6 +151,10 @@ MIT
 
 The project version is tracked in `src/hotfolder/__init__.py` as `__version__`. Please update this value and the badge above for each release.
 
+## Housecleaning in 1.9.0
+- Removed unused heartbeat logic and files (heartbeat.py, heartbeat.txt)
+- Cleaned up all references to obsolete config and state files
+
 ## Configuration Style
 
 All new configuration options should be grouped under a descriptive key (e.g., `cleaning`, `interval`, `logging`). This keeps the config organized and scalable.
@@ -193,3 +199,17 @@ hotfolder/
 - For each subfolder `xxx` in the IN root, an OUT folder `xxx_out` is created as a sibling in the same IN root.
 
 ## **Strict config validation**: All config fields are strictly type-checked and required in per-hotfolder configs. If any required key is missing or has the wrong type, hotfolder processing fails and an error is logged. Global config is only used if no per-hotfolder config is present.
+
+## 1.9.2 Minor update
+- Added heartbeat_enabled config option to control writing a heartbeat.txt file for external monitoring.
+
+### Heartbeat
+
+The global config now supports a heartbeat option:
+
+```yaml
+heartbeat:
+  heartbeat_enabled: false   # Enable writing a heartbeat.txt file for external monitoring
+```
+
+If enabled, the watcher will periodically write a `heartbeat/heartbeat.txt` file with a timestamp, which can be used by external scripts or monitoring tools to check if the agent is alive.

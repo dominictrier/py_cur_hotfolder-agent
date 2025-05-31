@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.9.2] - Heartbeat config option
+- Added heartbeat_enabled config option to control writing a heartbeat.txt file for external monitoring
+- Updated config files, example, and documentation
+
+## [1.9.1] - Minor config and documentation update
+- Updated config.yml and config.yml.example for clarity and consistency
+- Updated README and version badge
+
+## [1.9.0] - Housecleaning and removal of unused logic
+- Removed unused heartbeat logic and files (`heartbeat.py`, `heartbeat.txt`)
+- Cleaned up all references to obsolete config and state files (e.g., `.json`, `config.json`, etc.)
+- Updated documentation and README to reflect these changes
+
 ## [1.8.0] - Major config and retention_cleanup_time cleanup update
 - Refactored config structure and naming for clarity and future-proofing
 - Added and validated new key: schedule.retention_cleanup_time (default: 1440 minutes)

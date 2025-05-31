@@ -4,11 +4,11 @@ hotfolders: []
 # === Schedule Settings ===
 schedule:
   scan_interval: 10           # Seconds between scans of the hotfolder
-  resting_time: 300          # Seconds a job must be unchanged before processing
+  resting_time: 300           # Seconds a job must be unchanged before processing
 
 # === Retention Policy ===
 retention:
-  keep_copy: false             # Keep a copy of jobs in IN after processing
+  keep_copy: false            # Keep a copy of jobs in IN after processing
   cleanup: false              # Perform retention cleanup after jobs are processed
   cleanup_time: 1440          # Minutes to keep jobs in IN after processing
 
@@ -18,8 +18,8 @@ structure:
 
 # === Metadata Handling ===
 metadata:
-  inject_folder_name: false      # Enable/disable writing folder name into image metadata
-  metadata_field: headline      # Field to write the folder name into (e.g., 'headline'). Only applies to images.
+  inject_folder_name: false   # Enable/disable writing folder name into image metadata
+  metadata_field: headline    # Field to write the folder name into (e.g., 'headline'). Only applies to images.
 
 # === Auto Cleanup Options ===
 auto_cleanup:
@@ -36,4 +36,8 @@ logging:
 
 # === Debugging ===
 debugging:
-  debug: false                 # Enable debug logging
+  debug: false                # Enable debug logging
+
+# === Heartbeat ===
+heartbeat:
+  heartbeat_enabled: false   # Enable writing a heartbeat.txt file for external monitoring

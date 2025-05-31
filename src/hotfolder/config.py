@@ -13,6 +13,7 @@ group_comments = OrderedDict([
     ("mtime", "# === File Modification Time Handling ==="),
     ("logging", "# === Logging Settings ==="),
     ("debugging", "# === Debugging ==="),
+    ("heartbeat", "# === Heartbeat Settings ==="),
 ])
 key_comments = {
     "scan_interval": "# Seconds between scans of the hotfolder",
@@ -28,6 +29,7 @@ key_comments = {
     "update_mtime": "# Update mtime on files after processing",
     "log_retention": "# Days to keep log files",
     "debug": "# Enable debug logging",
+    "heartbeat_enabled": "# Enable writing a heartbeat.txt file for external monitoring",
 }
 
 GLOBAL_CONFIG_PATH = Path(__file__).parent.parent.parent / "config.yml"
@@ -42,6 +44,7 @@ GROUPED_KEYS = OrderedDict([
     ("mtime", ["update_mtime"]),
     ("logging", ["log_retention"]),
     ("debugging", ["debug"]),
+    ("heartbeat", ["heartbeat_enabled"]),
 ])
 
 REQUIRED_FIELDS = [
@@ -57,7 +60,8 @@ REQUIRED_FIELDS = [
     "ds_store",
     "update_mtime",
     "debug",
-    "thumbs_db"
+    "thumbs_db",
+    "heartbeat_enabled",
 ]
 
 DEFAULT_CONFIG = {
@@ -74,7 +78,8 @@ DEFAULT_CONFIG = {
     "ds_store": True,
     "update_mtime": True,
     "debug": False,
-    "thumbs_db": True
+    "thumbs_db": True,
+    "heartbeat_enabled": False,
 }
 
 def flatten_grouped_config(config):
@@ -102,6 +107,8 @@ def flatten_grouped_config(config):
         flat["cleanup"] = config["retention"].get("cleanup", True)
         flat["keep_copy"] = config["retention"].get("keep_copy", False)
         flat["cleanup_time"] = config["retention"].get("cleanup_time", 1440)
+    if "heartbeat" in config:
+        flat["heartbeat_enabled"] = config["heartbeat"].get("heartbeat_enabled", False)
     return flat
 
 def validate_config(config):
@@ -133,6 +140,8 @@ def generate_example_config_dict(include_hotfolders=True, example_config=None):
                 "inject_folder_name": example_config["inject_folder_name"],
                 "metadata_field": example_config["metadata_field"]
             }
+        elif group == "heartbeat":
+            grouped_example[group] = {"heartbeat_enabled": example_config["heartbeat_enabled"]}
         else:
             grouped_example[group] = {k: example_config[k] for k in GROUPED_KEYS[group]}
     return grouped_example
@@ -213,7 +222,8 @@ def get_effective_config(hotfolder_path, global_config=None):
             "ds_store": bool,
             "update_mtime": bool,
             "debug": bool,
-            "thumbs_db": bool
+            "thumbs_db": bool,
+            "heartbeat_enabled": bool
         }
         for key, expected_type in type_checks.items():
             val = flat_folder[key]

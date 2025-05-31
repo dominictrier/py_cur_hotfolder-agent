@@ -8,8 +8,6 @@ from pathlib import Path
 import threading
 from datetime import datetime, timedelta
 import sys
-from hotfolder.heartbeat import write_heartbeat
-import shutil
 from hotfolder.state_db import HotfolderStateDB
 import yaml
 
@@ -42,6 +40,11 @@ class HotfolderWatcher:
         self.running = True
         if self.debug:
             self._debug_print('global', "Starting dynamic hotfolder watcher...", debug_enabled=self.debug)
+        heartbeat_enabled = self.global_config.get("heartbeat_enabled", False)
+        if heartbeat_enabled:
+            heartbeat_dir = Path(__file__).parent.parent.parent / "heartbeat"
+            heartbeat_dir.mkdir(exist_ok=True)
+            heartbeat_file = heartbeat_dir / "heartbeat.txt"
         try:
             while self.running:
                 try:
@@ -49,7 +52,10 @@ class HotfolderWatcher:
                 except Exception as e:
                     logger = get_hotfolder_logger("global")
                     logger.error(f"Unhandled error in scan loop: {e}")
-                write_heartbeat()
+                # Write heartbeat if enabled
+                if heartbeat_enabled:
+                    with open(heartbeat_file, "w") as f:
+                        f.write(datetime.now().isoformat())
                 time.sleep(self.global_config.get("scan_interval", 10))
         except KeyboardInterrupt:
             self.running = False
