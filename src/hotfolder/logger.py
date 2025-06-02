@@ -18,6 +18,8 @@ class OnDemandFileHandler(logging.Handler):
             self.inner_handler = TimedRotatingFileHandler(
                 self.log_file, when="midnight", backupCount=self.retention_days
             )
+            # Ensure rotated logs use a date suffix (before extension)
+            self.inner_handler.suffix = "%Y-%m-%d"
             formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
             self.inner_handler.setFormatter(formatter)
         self.inner_handler.emit(record)

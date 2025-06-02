@@ -11,6 +11,7 @@ import sys
 import shutil
 from hotfolder.state_db import HotfolderStateDB
 import yaml
+import unicodedata
 
 class HotfolderWatcher:
     def __init__(self):
@@ -231,7 +232,7 @@ class HotfolderWatcher:
                 file_mtimes = {}
                 for subfile in f_path.rglob('*'):
                     if subfile.is_file():
-                        subrel = str(subfile.relative_to(folder))
+                        subrel = unicodedata.normalize('NFC', str(subfile.relative_to(folder)))
                         file_set.add(subrel)
                         mtime = subfile.stat().st_mtime
                         file_mtimes[subrel] = mtime
@@ -239,19 +240,13 @@ class HotfolderWatcher:
                         if subrel not in seen:
                             state_db.set_seen(subrel, now, mtime)
                             changed = True
-                # Extra debug: log file set and mtimes
+                # Normalize seen files for this job
+                seen_files_for_job = {unicodedata.normalize('NFC', k) for k in seen if k.startswith(rel + '/')}
+                # Extra debug: log normalized file sets
                 if debug_enabled:
-                    file_set_str = ', '.join(sorted(file_set))
-                    self._debug_print(folder, f"[RESTING] File set for {rel}: [{file_set_str}]", debug_enabled=debug_enabled)
-                    if file_set:
-                        mtimes_str = '; '.join([
-                            f"{fname}:cur={file_mtimes.get(fname)},seen={seen.get(fname, {}).get('mtime')}"
-                            for fname in sorted(file_set)
-                        ])
-                        self._debug_print(folder, f"[RESTING] File mtimes for {rel}: {mtimes_str}", debug_enabled=debug_enabled)
+                    self._debug_print(folder, f"[DEBUG] repr(file_set): {repr(sorted(file_set))}", debug_enabled=debug_enabled)
+                    self._debug_print(folder, f"[DEBUG] repr(seen_files_for_job): {repr(sorted(seen_files_for_job))}", debug_enabled=debug_enabled)
                 # Compare file_set to seen files for this job
-                seen_files_for_job = {k for k in seen if k.startswith(rel + '/')}
-                # Reset seen_time if any file added, removed, or mtime changed
                 files_added = file_set - seen_files_for_job
                 files_removed = seen_files_for_job - file_set
                 mtimes_changed = set()
