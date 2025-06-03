@@ -255,8 +255,8 @@ class HotfolderWatcher:
                     seen_mtime = seen.get(fname, {}).get('mtime')
                     if seen_mtime is not None and current_mtime != seen_mtime:
                         mtimes_changed.add(fname)
-                # Remove deleted files from seen
-                deleted_from_seen = set(seen.keys()) - file_set - {rel}
+                # Remove deleted files from seen (only for this job)
+                deleted_from_seen = {k for k in seen if k.startswith(rel + '/') and k not in file_set}
                 for subrel in deleted_from_seen:
                     state_db.remove_seen(subrel)
                     changed = True
