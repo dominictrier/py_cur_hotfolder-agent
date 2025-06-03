@@ -1,0 +1,48 @@
+# === Hotfolder Roots ===
+hotfolders: []
+
+# === Schedule Settings ===
+schedule:
+  scan_interval: 10 # Seconds between scans of the hotfolder
+  resting_time: 300 # Seconds a job must be unchanged before processing
+
+# === Retention Policy ===
+retention:
+  keep_copy: false # Keep a copy of jobs in IN after processing
+  cleanup: false # Perform retention cleanup after jobs are processed
+  cleanup_time: 1440 # Minutes to keep jobs in IN after processing
+
+# === Folder Structure ===
+structure:
+  dissolve_folders: false # If true, flatten job folders when moving to OUT
+
+# === Metadata Handling ===
+metadata:
+  inject_folder_name: false # Enable/disable metadata extraction
+  metadata_field: "headline" # Optional: specify a metadata field to extract
+
+# === Auto Cleanup Options ===
+auto_cleanup:
+  ds_store: true # Remove .DS_Store files from jobs
+  thumbs_db: true # Remove Thumbs.db files from jobs
+
+# === File Modification Time Handling ===
+mtime:
+  update_mtime: true # Update mtime on files after processing
+
+# === Logging Settings ===
+logging:
+  log_retention: 7 # Days to keep log files
+
+# === Heartbeat Settings ===
+heartbeat:
+  heartbeat_enabled: false # Enable writing a heartbeat.txt file for external monitoring
+
+# === Debugging ===
+debugging:
+  debug: false                # Enable debug logging
+
+# Example per-hotfolder config override:
+# In /path/to/hotfolders/IN/job1/.config/config.yml:
+# logging:
+#   log_level: DEBUG          # Only for this hotfolder
