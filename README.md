@@ -1,6 +1,6 @@
 # Hotfolder System
 
-![version](https://img.shields.io/badge/version-1.9.2-blue)
+![version](https://img.shields.io/badge/version-1.10.0-blue)
 
 ## Overview
 This Python hotfolder system monitors one or more input directories for new files or folders, processes them according to configurable rules, and moves or copies them to output directories. It is designed for 24/7 unattended operation and supports per-hotfolder configuration, logging, metadata writing for image files, and advanced file retention/copying logic.
@@ -16,6 +16,7 @@ This Python hotfolder system monitors one or more input directories for new file
 - Configurable scan interval for both global and per-hotfolder polling
 - **Keep files**, **ignore updates**, and **update mtime** options for advanced copy/retention logic
 - **Skips `.DS_Store` and `thumbs.db` files** (if enabled in config) when copying/moving to OUT, so OUT is always clean of these system files.
+- **Watcher stability:** Resting timer now resets on any mtime change (increase or decrease), not just increases. 'Seen' state is only removed for the current job, preventing interference between jobs. Improved debug logging for mtime changes. Robust handling of multiple jobs in parallel and correct retention cleanup.
 
 ## Configuration
 

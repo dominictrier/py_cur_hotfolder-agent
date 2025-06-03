@@ -21,3 +21,6 @@ config.yml
 
 # Global Log
 log/
+
+# Development TODO list
+project_todo.md

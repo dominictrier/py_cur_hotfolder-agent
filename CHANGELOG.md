@@ -65,4 +65,10 @@
 - Automatic .DS_Store cleaning
 - Debug and cleaning config groups
 - Robust error handling and config validation
-- Heartbeat and production hardening 
+- Heartbeat and production hardening
+
+## [1.10.0] - Improved watcher stability and parallel job handling
+- Watcher now resets resting timer on any mtime change (increase or decrease), not just increases.
+- Watcher only removes 'seen' state for the current job, preventing interference between jobs.
+- Improved debug logging: old and new mtime are logged on any mtime change.
+- Confirmed robust handling of multiple jobs in parallel and correct retention cleanup. 

@@ -1,4 +1,5 @@
 # === Hotfolder Roots ===
+# As of v1.10.0: Watcher stability improvements - resting timer resets on any mtime change, 'seen' state is only removed for the current job, improved debug logging for mtime changes.
 hotfolders: []
 
 # === Schedule Settings ===

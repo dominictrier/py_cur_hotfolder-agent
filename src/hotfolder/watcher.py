@@ -294,11 +294,14 @@ class HotfolderWatcher:
                     return
             elif f_path.is_file():
                 mtime = f_path.stat().st_mtime
-                if rel in seen and mtime > seen[rel]['mtime']:
-                    state_db.set_seen(rel, now, mtime)
-                    changed = True
-                    if debug_enabled:
-                        self._debug_print(folder, f"[RESTING] Reset seen_time for {rel} due to file mtime change", debug_enabled=debug_enabled)
+                if rel in seen:
+                    prev_mtime = seen[rel]['mtime']
+                    if mtime != prev_mtime:
+                        if debug_enabled:
+                            self._debug_print(folder, f"[RESTING] mtime changed for {rel}: old={prev_mtime}, new={mtime}", debug_enabled=debug_enabled)
+                        state_db.set_seen(rel, now, mtime)
+                        changed = True
+                        self._debug_print(folder, f"[RESTING] Reset seen_time for {rel} due to mtime change", debug_enabled=debug_enabled)
             # 2. Check if stable
             seen_time = seen[rel]['seen_time'] if rel in seen else now
             stable = (now - seen_time) >= resting_time
