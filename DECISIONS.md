@@ -59,15 +59,49 @@ The system is now more robust, predictable, and easier to debug, especially when
 ## 2024-06-12: Fixed mtime comparison logic in watcher
 
 **Decision:**  
-Modified the mtime comparison logic to only reset seen_time when there are actual changes to files, not just when the latest mtime is greater than the last seen time.
+Modified the mtime comparison logic to reset seen_time on any mtime change, independent of the seen_time.
 
 **Context:**  
-The watcher was incorrectly resetting the seen_time whenever the latest mtime was greater than the last seen time, causing unnecessary resets and preventing jobs from reaching their resting time. This was particularly problematic when files had newer mtimes than when they were first seen.
+The watcher was inconsistently handling mtime changes:
+- For individual files, it reset on any mtime change
+- For job folders, it only reset when mtime was newer than recorded mtime
+
+This inconsistency could cause issues where files with older mtimes weren't properly triggering the resting timer reset.
 
 **Consequences:**  
-The seen_time is now only reset when there are actual changes to the files (additions, removals, or mtime changes), ensuring jobs can properly reach their resting time and be processed. This maintains the stability improvements from version 1.10.0 while fixing the mtime comparison issue.
+The seen_time is now reset when:
+1. Files are added to the job
+2. Files are removed from the job
+3. File mtimes are different from their recorded mtime (any change)
+4. Files are deleted from the seen state
+
+This ensures consistent behavior across all file operations. The mtime comparison is independent of the seen_time, which is only used for resting time calculations.
+
+A folder can only be processed when ALL files inside have:
+- No mtime changes during the resting period
+- Been present for the full resting period
+- Reached their individual resting times
 
 **Related Issues/PRs:**  
 - See CHANGELOG.md [1.10.1]
+
+---
+
+## 2024-06-12: Fixed folder processing logic to ensure all files must rest
+
+**Decision:**  
+Modified the folder processing logic to ensure ALL files in a folder must rest before the folder can be processed.
+
+**Context:**  
+The watcher was not properly checking if all files in a folder had rested before processing. This could lead to premature processing of folders where some files were still being modified.
+
+**Consequences:**  
+- Each file in a folder must independently rest for the full resting time
+- A folder can only be processed when ALL files inside have rested
+- Debug logging now shows which files haven't rested long enough
+- Clear separation between seen_time (for resting) and mtime (for changes)
+
+**Related Issues/PRs:**  
+- See CHANGELOG.md [1.10.2]
 
 ---

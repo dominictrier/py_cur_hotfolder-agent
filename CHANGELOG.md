@@ -5,22 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.10.1] - 2024-06-12
+## [1.10.2] - 2024-06-12
+
 ### Fixed
-- Fixed mtime comparison logic to only reset seen_time on actual file changes
-- Resolved issue where jobs were getting stuck due to incorrect mtime comparison
-- Improved stability of the resting timer by removing unnecessary resets
+- Fixed folder processing logic to ensure ALL files must rest before processing
+- Improved debug logging for file resting status
+- Clarified separation between seen_time (for resting) and mtime (for changes)
+
+## [1.10.1] - 2024-06-12
+
+### Fixed
+- Fixed mtime comparison logic to reset seen_time on any mtime change
+- Improved handling of file mtime changes
+- Enhanced stability of resting timer reset logic
 
 ## [1.10.0] - 2024-06-11
+
 ### Added
 - Improved watcher stability with better handling of mtime changes
-- Enhanced parallel job processing with job-scoped state management
-- Added detailed debug logging for mtime changes and file set comparisons
+- Added parallel job processing support
+- Enhanced debug logging for mtime changes and job state
+
+### Changed
+- Modified resting timer reset logic to be more robust
+- Updated job-scoped state management
+- Improved handling of file modifications
 
 ### Fixed
-- Fixed issue where 'seen' state was being incorrectly removed for all jobs
-- Improved handling of file mtime changes during job processing
-- Enhanced stability of the resting timer reset logic
+- Fixed incorrect removal of 'seen' state for jobs
+- Improved handling of file mtime changes
+- Enhanced stability of resting timer reset logic
 
 ## [1.9.2] - 2024-06-10
 ### Fixed

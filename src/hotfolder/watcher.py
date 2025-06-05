@@ -307,79 +307,103 @@ class HotfolderWatcher:
             stable = (now - seen_time) >= resting_time
             if stable:
                 f_path = folder / rel
-                if keep_copy and f_path.is_dir():
-                    # Recursively process files in the job folder
-                    job_files = [sf for sf in f_path.rglob('*') if sf.is_file()]
-                    processed_entry = {k: v for k, v in processed.items() if k.startswith(rel + '/')}
-                    processed_files = processed_entry
-                    to_process = []
-                    current_files = set()
-                    for sf in job_files:
-                        srel = str(sf.relative_to(folder))
-                        smtime = sf.stat().st_mtime
-                        current_files.add(srel)
-                        pf = processed_files.get(srel, {})
+                if f_path.is_dir():
+                    # Check if ALL files in the folder have rested
+                    all_files_rested = True
+                    for subfile in f_path.rglob('*'):
+                        if subfile.is_file():
+                            subrel = str(subfile.relative_to(folder))
+                            if subrel in seen:
+                                sub_seen_time = seen[subrel]['seen_time']
+                                if (now - sub_seen_time) < resting_time:
+                                    all_files_rested = False
+                                    if debug_enabled:
+                                        self._debug_print(folder, f"[RESTING] File {subrel} has not rested long enough: seen_time={sub_seen_time}, now={now}, delta={now - sub_seen_time:.1f}s (resting_time={resting_time}s)", debug_enabled=debug_enabled)
+                                    break
+                            else:
+                                all_files_rested = False
+                                if debug_enabled:
+                                    self._debug_print(folder, f"[RESTING] File {subrel} not yet seen", debug_enabled=debug_enabled)
+                                break
+                    
+                    if not all_files_rested:
+                        if debug_enabled:
+                            self._debug_print(folder, f"[RESTING] Not all files in {rel} have rested long enough", debug_enabled=debug_enabled)
+                        continue
+
+                    if keep_copy:
+                        # Recursively process files in the job folder
+                        job_files = [sf for sf in f_path.rglob('*') if sf.is_file()]
+                        processed_entry = {k: v for k, v in processed.items() if k.startswith(rel + '/')}
+                        processed_files = processed_entry
+                        to_process = []
+                        current_files = set()
+                        for sf in job_files:
+                            srel = str(sf.relative_to(folder))
+                            smtime = sf.stat().st_mtime
+                            current_files.add(srel)
+                            pf = processed_files.get(srel, {})
+                            if pf.get('mtime') != smtime:
+                                to_process.append((sf, srel, smtime))
+                        if to_process:
+                            moved_count = 0
+                            for sf, srel, smtime in to_process:
+                                out_path = out_folder / srel
+                                out_path.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(str(sf), str(out_path))
+                                moved_count += 1
+                                if debug_enabled:
+                                    self._debug_print(folder, f"[PER-FILE] Copied {srel} to OUT (resting_time={resting_time}, stable={stable}).", debug_enabled=debug_enabled)
+                            # Update processed entry
+                            for _, srel, smtime in to_process:
+                                # Ensure processed_time is set
+                                state_db.set_processed(srel, now, smtime)
+                                if debug_enabled:
+                                    self._debug_print(folder, f"[DB] Added to processed: {srel}", debug_enabled=debug_enabled)
+                            changed = True
+                            self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
+                            if debug_enabled:
+                                self._debug_print(folder, f"[PROCESSED] Processed {rel}, moved_count={moved_count}", debug_enabled=debug_enabled)
+                        # Handle deletions: remove entries for files no longer present
+                        removed_files = set(processed_files.keys()) - current_files
+                        for srel in removed_files:
+                            state_db.remove_processed(srel)
+                            changed = True
+                            self.log_action(logger, folder, "REMOVED", f"File removed from IN: {srel}")
+                            if debug_enabled:
+                                self._debug_print(folder, f"[DB] Removed from processed: {srel}", debug_enabled=debug_enabled)
+                    elif keep_copy and f_path.is_file():
+                        smtime = f_path.stat().st_mtime
+                        pf = processed.get(rel, {})
                         if pf.get('mtime') != smtime:
-                            to_process.append((sf, srel, smtime))
-                    if to_process:
-                        moved_count = 0
-                        for sf, srel, smtime in to_process:
-                            out_path = out_folder / srel
+                            out_path = out_folder / rel
                             out_path.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.copy2(str(sf), str(out_path))
-                            moved_count += 1
+                            shutil.copy2(str(f_path), str(out_path))
+                            state_db.set_processed(rel, now, smtime)
+                            changed = True
+                            self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count=1")
                             if debug_enabled:
-                                self._debug_print(folder, f"[PER-FILE] Copied {srel} to OUT (resting_time={resting_time}, stable={stable}).", debug_enabled=debug_enabled)
-                        # Update processed entry
-                        for _, srel, smtime in to_process:
-                            # Ensure processed_time is set
-                            state_db.set_processed(srel, now, smtime)
+                                self._debug_print(folder, f"[PROCESSED] Processed {rel}, moved_count=1", debug_enabled=debug_enabled)
+                    elif not keep_copy:
+                        # Move logic unchanged: move whole job after resting_time
+                        if rel not in processed:
                             if debug_enabled:
-                                self._debug_print(folder, f"[DB] Added to processed: {srel}", debug_enabled=debug_enabled)
-                        changed = True
-                        self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
-                        if debug_enabled:
-                            self._debug_print(folder, f"[PROCESSED] Processed {rel}, moved_count={moved_count}", debug_enabled=debug_enabled)
-                    # Handle deletions: remove entries for files no longer present
-                    removed_files = set(processed_files.keys()) - current_files
-                    for srel in removed_files:
-                        state_db.remove_processed(srel)
-                        changed = True
-                        self.log_action(logger, folder, "REMOVED", f"File removed from IN: {srel}")
-                        if debug_enabled:
-                            self._debug_print(folder, f"[DB] Removed from processed: {srel}", debug_enabled=debug_enabled)
-                elif keep_copy and f_path.is_file():
-                    smtime = f_path.stat().st_mtime
-                    pf = processed.get(rel, {})
-                    if pf.get('mtime') != smtime:
-                        out_path = out_folder / rel
-                        out_path.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(str(f_path), str(out_path))
-                        state_db.set_processed(rel, now, smtime)
-                        changed = True
-                        self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count=1")
-                        if debug_enabled:
-                            self._debug_print(folder, f"[PROCESSED] Processed {rel}, moved_count=1", debug_enabled=debug_enabled)
-                elif not keep_copy:
-                    # Move logic unchanged: move whole job after resting_time
-                    if rel not in processed:
-                        if debug_enabled:
-                            self._debug_print(folder, f"[PROCESSING] {rel} is stable, moving now.", debug_enabled=debug_enabled)
-                        moved_count, marked_for_deletion = move_hotfolder_contents(
-                            folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_copy, ignore_updates, update_mtime, ds_store, thumbs_db)
-                        state_db.set_processed(rel, now, f_path.stat().st_mtime)
-                        # Mark for deferred deletion if needed
-                        if dissolve_folders and rel in marked_for_deletion:
-                            state_db.mark_ready_for_deletion(rel)
-                        changed = True
-                        self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
-                        if debug_enabled:
-                            self._debug_print(folder, f"[PROCESSED] Processed {rel}, moved_count={moved_count}", debug_enabled=debug_enabled)
-                        # After moving, check if folder still exists
-                        if not f_path.exists():
+                                self._debug_print(folder, f"[PROCESSING] {rel} is stable, moving now.", debug_enabled=debug_enabled)
+                            moved_count, marked_for_deletion = move_hotfolder_contents(
+                                folder, out_folder, dissolve_folders, metadata, metadata_field, logger, keep_copy, ignore_updates, update_mtime, ds_store, thumbs_db)
+                            state_db.set_processed(rel, now, f_path.stat().st_mtime)
+                            # Mark for deferred deletion if needed
+                            if dissolve_folders and rel in marked_for_deletion:
+                                state_db.mark_ready_for_deletion(rel)
+                            changed = True
+                            self.log_action(logger, folder, "PROCESSED", f"Processed {rel}, moved_count={moved_count}")
                             if debug_enabled:
-                                self._debug_print(folder, f"[INFO] Folder {f_path} was moved and no longer exists. Exiting processing loop.", debug_enabled=debug_enabled)
-                            return
+                                self._debug_print(folder, f"[PROCESSED] Processed {rel}, moved_count={moved_count}", debug_enabled=debug_enabled)
+                            # After moving, check if folder still exists
+                            if not f_path.exists():
+                                if debug_enabled:
+                                    self._debug_print(folder, f"[INFO] Folder {f_path} was moved and no longer exists. Exiting processing loop.", debug_enabled=debug_enabled)
+                                return
             # 4. Log status
             processed_time = processed.get(rel, {}).get("processed_time")
             age = (now - processed_time) if processed_time else None
