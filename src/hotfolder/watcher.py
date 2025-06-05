@@ -156,6 +156,10 @@ class HotfolderWatcher:
         # Get current files and folders
         current_items = {str(f.relative_to(folder)) for f in folder.iterdir() if not f.name.startswith('.')}
         
+        # Get DB states
+        seen = state_db.get_seen()
+        processed = state_db.get_processed()
+        
         # Clean up seen state for any removed items
         removed_seen_items = []
         for seen_path in list(seen.keys()):
