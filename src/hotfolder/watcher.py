@@ -156,29 +156,94 @@ class HotfolderWatcher:
         # Get current files and folders
         current_items = {str(f.relative_to(folder)) for f in folder.iterdir() if not f.name.startswith('.')}
         
-        # Clean up seen and processed entries for removed items
-        seen = state_db.get_seen()
-        processed = state_db.get_processed()
-        
         # Clean up seen state for any removed items
+        removed_seen_items = []
         for seen_path in list(seen.keys()):
-            # Skip if item still exists
-            if seen_path in current_items:
+            # Skip if item still exists in filesystem
+            if (folder / seen_path).exists():
                 continue
-            # Item was removed (by workflow, retention, or user) - clean up its state
+                
+            # Special case: if parent folder is missing, clean up regardless of retention
+            parent_path = str(Path(seen_path).parent)
+            if parent_path != '.' and not (folder / parent_path).exists():
+                if debug_enabled:
+                    self._debug_print(folder, f"[CLEANUP] Removing seen state for {seen_path} - parent folder {parent_path} was deleted", debug_enabled=debug_enabled)
+                state_db.remove_seen(seen_path)
+                removed_seen_items.append(seen_path)
+                continue
+                
+            # Skip if item is still under retention
+            if seen_path in processed:
+                processed_time = processed[seen_path].get('processed_time')
+                if processed_time and (now - processed_time) / 60 < cleanup_time:
+                    if debug_enabled:
+                        self._debug_print(folder, f"[CLEANUP] Skipping seen state cleanup for {seen_path} - still under retention (processed {((now - processed_time) / 60):.1f} min ago)", debug_enabled=debug_enabled)
+                    continue
+            # Item was removed from filesystem and not under retention - clean up its state
             state_db.remove_seen(seen_path)
-            if debug_enabled:
-                self._debug_print(folder, f"[CLEANUP] Removed seen state for removed item: {seen_path}", debug_enabled=debug_enabled)
+            removed_seen_items.append(seen_path)
+        
+        # Log removed items in groups if any were removed
+        if removed_seen_items and debug_enabled:
+            # Group by parent folder
+            grouped_items = {}
+            for item in removed_seen_items:
+                parent = str(Path(item).parent)
+                if parent not in grouped_items:
+                    grouped_items[parent] = []
+                grouped_items[parent].append(Path(item).name)
+            
+            # Log each group
+            for parent, items in grouped_items.items():
+                if len(items) > 3:
+                    self._debug_print(folder, f"[CLEANUP] Removed seen state for {len(items)} items in {parent} (removed from filesystem)", debug_enabled=debug_enabled)
+                else:
+                    for item in items:
+                        self._debug_print(folder, f"[CLEANUP] Removed seen state for {parent}/{item} (removed from filesystem)", debug_enabled=debug_enabled)
         
         # Clean up processed state for any removed items
+        removed_processed_items = []
         for processed_path in list(processed.keys()):
-            # Skip if item still exists
-            if processed_path in current_items:
+            # Skip if item still exists in filesystem
+            if (folder / processed_path).exists():
                 continue
-            # Item was removed (by workflow, retention, or user) - clean up its state
+                
+            # Special case: if parent folder is missing, clean up regardless of retention
+            parent_path = str(Path(processed_path).parent)
+            if parent_path != '.' and not (folder / parent_path).exists():
+                if debug_enabled:
+                    self._debug_print(folder, f"[CLEANUP] Removing processed state for {processed_path} - parent folder {parent_path} was deleted", debug_enabled=debug_enabled)
+                state_db.remove_processed(processed_path)
+                removed_processed_items.append(processed_path)
+                continue
+                
+            # Skip if item is still under retention
+            processed_time = processed[processed_path].get('processed_time')
+            if processed_time and (now - processed_time) / 60 < cleanup_time:
+                if debug_enabled:
+                    self._debug_print(folder, f"[CLEANUP] Skipping processed state cleanup for {processed_path} - still under retention (processed {((now - processed_time) / 60):.1f} min ago)", debug_enabled=debug_enabled)
+                continue
+            # Item was removed from filesystem and past retention - clean up its state
             state_db.remove_processed(processed_path)
-            if debug_enabled:
-                self._debug_print(folder, f"[CLEANUP] Removed processed state for removed item: {processed_path}", debug_enabled=debug_enabled)
+            removed_processed_items.append(processed_path)
+        
+        # Log removed processed items in groups if any were removed
+        if removed_processed_items and debug_enabled:
+            # Group by parent folder
+            grouped_items = {}
+            for item in removed_processed_items:
+                parent = str(Path(item).parent)
+                if parent not in grouped_items:
+                    grouped_items[parent] = []
+                grouped_items[parent].append(Path(item).name)
+            
+            # Log each group
+            for parent, items in grouped_items.items():
+                if len(items) > 3:
+                    self._debug_print(folder, f"[CLEANUP] Removed processed state for {len(items)} items in {parent} (removed from filesystem)", debug_enabled=debug_enabled)
+                else:
+                    for item in items:
+                        self._debug_print(folder, f"[CLEANUP] Removed processed state for {parent}/{item} (removed from filesystem)", debug_enabled=debug_enabled)
 
         # Deferred deletion: clean up any job folders marked for deletion
         ready_for_deletion = state_db.get_ready_for_deletion_jobs()
