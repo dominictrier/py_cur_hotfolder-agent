@@ -154,3 +154,28 @@ This meant we could have "ghost" entries in the database for files that were del
 - See CHANGELOG.md [1.10.2]
 
 ---
+
+## 2024-06-12: Separated business logic from debug output
+
+**Decision:**  
+Keep business logic and debug output strictly separate, ensuring that debug/logging changes never influence the actual behavior of the system.
+
+**Context:**  
+During development, there can be a temptation to modify business logic to make debugging easier or to improve log output. This can lead to unintended side effects and make the code harder to maintain.
+
+**Consequences:**  
+- Business logic is driven solely by functional requirements
+- Debug output and logging are treated as presentation concerns
+- Changes to debug output never affect the actual behavior of the system
+- Makes it easier to modify logging without risking functional changes
+- Improves code maintainability by keeping concerns separated
+
+**Examples:**
+- Debug output can show processed times from child files without changing how folders are processed
+- Logging can be enhanced to show more information without modifying the underlying logic
+- Debug statements can be added or removed without affecting the business rules
+
+**Related Issues/PRs:**  
+- See CHANGELOG.md [1.10.2]
+
+---

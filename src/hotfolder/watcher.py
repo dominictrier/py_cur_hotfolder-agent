@@ -330,6 +330,7 @@ class HotfolderWatcher:
             # 2. Check if stable
             seen_time = seen[rel]['seen_time'] if rel in seen else now
             stable = (now - seen_time) >= resting_time
+
             if stable:
                 f_path = folder / rel
                 if f_path.is_dir():
@@ -434,14 +435,11 @@ class HotfolderWatcher:
             age = (now - processed_time) if processed_time else None
             if debug_enabled:
                 if f_path.is_dir():
-                    # For folders, check if any files are processed
+                    # For debug output only: check processed times of files
                     processed_files = {k: v for k, v in processed.items() if k.startswith(rel + '/')}
                     if processed_files:
-                        # Use the latest processed time from any file
                         latest_processed = max(v.get('processed_time', 0) for v in processed_files.values())
-                        processed_time = latest_processed
-                        age = (now - processed_time) if processed_time else None
-                        self._debug_print(folder, f"Folder: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: {processed_time}, age: {age if age is not None else 'N/A'} (from processed files)", debug_enabled=debug_enabled)
+                        self._debug_print(folder, f"Folder: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: {latest_processed}, age: {(now - latest_processed) if latest_processed else 'N/A'} (from processed files)", debug_enabled=debug_enabled)
                     else:
                         self._debug_print(folder, f"Folder: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: None, age: N/A (no processed files)", debug_enabled=debug_enabled)
                 else:
