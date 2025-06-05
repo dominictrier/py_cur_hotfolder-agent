@@ -136,10 +136,16 @@ class HotfolderWatcher:
             time.sleep(config.get("scan_interval", 10))
 
     def handle_hotfolder(self, folder, out_folder, hotfolder_debug=None):
+        # Determine debug mode for this hotfolder
+        if hotfolder_debug is None:
+            config = get_effective_config(folder, self.global_config)
+            hotfolder_debug = config.get("debug", self.debug)
+        else:
+            config = get_effective_config(folder, self.global_config)
+        debug_enabled = hotfolder_debug
+
         # Remove old state files if present
         if not folder.exists():
-            config = get_effective_config(folder, self.global_config)
-            debug_enabled = config.get("debug", self.debug)
             if debug_enabled:
                 self._debug_print(folder, f"[SKIP] Folder {folder} no longer exists, skipping.", debug_enabled=debug_enabled)
             return
@@ -194,13 +200,6 @@ class HotfolderWatcher:
                     if debug_enabled:
                         self._debug_print(folder, f"[CLEANUP] Failed to delete marked job folder {job_folder}: {e}", debug_enabled=debug_enabled)
 
-        # Determine debug mode for this hotfolder
-        if hotfolder_debug is None:
-            config = get_effective_config(folder, self.global_config)
-            hotfolder_debug = config.get("debug", self.debug)
-        else:
-            config = get_effective_config(folder, self.global_config)
-        debug_enabled = hotfolder_debug
         # Never execute or import code from the hotfolder
         for f in folder.iterdir():
             if f.suffix in {'.py', '.pyc', '.pyo', '.sh', '.bash', '.zsh', '.pl', '.rb', '.php', '.js', '.exe', '.dll', '.so', '.dylib'}:
