@@ -55,3 +55,19 @@ The system is now more robust, predictable, and easier to debug, especially when
 - See CHANGELOG.md [1.10.0]
 
 ---
+
+## 2024-06-12: Fixed mtime comparison logic in watcher
+
+**Decision:**  
+Modified the mtime comparison logic to only reset seen_time when there are actual changes to files, not just when the latest mtime is greater than the last seen time.
+
+**Context:**  
+The watcher was incorrectly resetting the seen_time whenever the latest mtime was greater than the last seen time, causing unnecessary resets and preventing jobs from reaching their resting time. This was particularly problematic when files had newer mtimes than when they were first seen.
+
+**Consequences:**  
+The seen_time is now only reset when there are actual changes to the files (additions, removals, or mtime changes), ensuring jobs can properly reach their resting time and be processed. This maintains the stability improvements from version 1.10.0 while fixing the mtime comparison issue.
+
+**Related Issues/PRs:**  
+- See CHANGELOG.md [1.10.1]
+
+---

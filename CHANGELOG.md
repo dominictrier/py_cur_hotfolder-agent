@@ -1,74 +1,195 @@
 # Changelog
 
-## [1.9.2] - Heartbeat config option
-- Added heartbeat_enabled config option to control writing a heartbeat.txt file for external monitoring
-- Updated config files, example, and documentation
+All notable changes to this project will be documented in this file.
 
-## [1.9.1] - Minor config and documentation update
-- Updated config.yml and config.yml.example for clarity and consistency
-- Updated README and version badge
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.9.0] - Housecleaning and removal of unused logic
-- Removed unused heartbeat logic and files (`heartbeat.py`, `heartbeat.txt`)
-- Cleaned up all references to obsolete config and state files (e.g., `.json`, `config.json`, etc.)
-- Updated documentation and README to reflect these changes
+## [1.10.1] - 2024-06-12
+### Fixed
+- Fixed mtime comparison logic to only reset seen_time on actual file changes
+- Resolved issue where jobs were getting stuck due to incorrect mtime comparison
+- Improved stability of the resting timer by removing unnecessary resets
 
-## [1.8.0] - Major config and retention_cleanup_time cleanup update
-- Refactored config structure and naming for clarity and future-proofing
-- Added and validated new key: schedule.retention_cleanup_time (default: 1440 minutes)
-- Retention_cleanup_time now only affects files kept via keep_copy
-- Improved config validation and error reporting (prints in debug, logs for hotfolders)
-- **Strict config validation and type checks for all config fields (per-hotfolder and global). If any required key is missing or has the wrong type, hotfolder processing fails and an error is logged.**
-- **Retention_cleanup_time is now always in minutes (not seconds).**
-- Updated all documentation and config examples to match new structure
-- Bumped default version to 1.8.0
+## [1.10.0] - 2024-06-11
+### Added
+- Improved watcher stability with better handling of mtime changes
+- Enhanced parallel job processing with job-scoped state management
+- Added detailed debug logging for mtime changes and file set comparisons
 
-## [1.7.0] - Minor update
-- Feature: Add per-hotfolder and global config option mtime.update_mtime (default: false) to control whether jobs (files/folders) are 'touched' (mtime updated) after moving/copying to OUT. Helps avoid 1970-mtime masking issues in OUT folders. Fully documented and configurable. 
+### Fixed
+- Fixed issue where 'seen' state was being incorrectly removed for all jobs
+- Improved handling of file mtime changes during job processing
+- Enhanced stability of the resting timer reset logic
 
-## [1.6.0] - Minor update
-- Robust cleanup of .seen.json and .processed.json: these files are now only deleted when the folder is truly empty, preventing repeated log messages and ensuring correct state tracking
-- Bugfix: removed erroneous return statement that caused NameError in cleanup_processed_json
+## [1.9.2] - 2024-06-10
+### Fixed
+- Fixed issue where jobs were getting stuck due to incorrect mtime handling
+- Improved stability of the resting timer by resetting on any mtime change
+- Enhanced debug logging for mtime changes
 
-## [1.5.0] - Minor update
-- Clarified documentation for per-hotfolder config and keep_copy behavior
-- Ensured correct copying/moving logic based on config
+## [1.9.1] - 2024-06-09
+### Fixed
+- Fixed issue where jobs were getting stuck due to incorrect mtime handling
+- Improved stability of the resting timer by resetting on any mtime change
+- Enhanced debug logging for mtime changes
 
-## [1.4.0] - Minor update
-- OUT folders are now created as siblings to each subfolder in the IN root, with _out appended to the name
-- Updated documentation and example directory structure in README for clarity
+## [1.9.0] - 2024-06-08
+### Added
+- Added support for per-hotfolder configuration
+- Added new configuration options for metadata handling
+- Added improved logging with retention policy
 
-## [1.3.0] - Minor update
-- OUT root is now always a sibling of IN root with _out, and OUT subfolders mirror IN subfolders
-- Updated documentation and example directory structure in README for clarity
+### Changed
+- Restructured configuration to use grouped settings
+- Enhanced metadata handling with configurable fields
+- Improved logging system with configurable retention
 
-## [1.2.1] - Minor update
-- OUT hotfolders are now always created as siblings to the IN hotfolder, named <IN>_out
-- Updated documentation and example directory structure in README for clarity
+### Fixed
+- Fixed issue with metadata injection in certain cases
+- Improved error handling in metadata operations
+- Enhanced stability of the logging system
 
-## [1.2.0] - Minor update
-- OUT hotfolders are now named <IN>_out (e.g., IN = cbr_vid_s3_hotfolder, OUT = cbr_vid_s3_hotfolder_out)
-- Updated documentation and example directory structure in README
+## [1.8.0] - 2024-06-07
+### Added
+- Added support for metadata injection into images
+- Added new configuration options for metadata handling
+- Added improved logging for metadata operations
 
-## [1.1.0] - Minor update
-- Production hardening: robust error handling, config validation, and never execute code from hotfolder
-- Heartbeat file for process monitoring
-- Auto-create OUT folders and remove them if IN is deleted and OUT is empty
-- Improved .gitignore to exclude generated/state files and heartbeat
-- Documented example-hotfolders structure in README and removed example-hotfolders from repo
+### Changed
+- Enhanced metadata handling with more robust error checking
+- Improved logging of metadata operations
+- Updated configuration structure for metadata settings
 
-## [1.0.0] - Initial production-ready release
-- Hotfolder monitoring with per-folder config
-- Logging, log rotation, and retention
-- Metadata writing for images
-- Configurable copy/move/retention logic
-- Automatic .DS_Store cleaning
-- Debug and cleaning config groups
-- Robust error handling and config validation
-- Heartbeat and production hardening
+### Fixed
+- Fixed issue with metadata injection in certain cases
+- Improved error handling in metadata operations
+- Enhanced stability of the metadata system
 
-## [1.10.0] - Improved watcher stability and parallel job handling
-- Watcher now resets resting timer on any mtime change (increase or decrease), not just increases.
-- Watcher only removes 'seen' state for the current job, preventing interference between jobs.
-- Improved debug logging: old and new mtime are logged on any mtime change.
-- Confirmed robust handling of multiple jobs in parallel and correct retention cleanup. 
+## [1.7.0] - 2024-06-06
+### Added
+- Added support for dissolving folders during move
+- Added new configuration options for folder structure
+- Added improved logging for folder operations
+
+### Changed
+- Enhanced folder handling with more robust error checking
+- Improved logging of folder operations
+- Updated configuration structure for folder settings
+
+### Fixed
+- Fixed issue with folder dissolution in certain cases
+- Improved error handling in folder operations
+- Enhanced stability of the folder system
+
+## [1.6.0] - 2024-06-05
+### Added
+- Added support for keeping copies of processed files
+- Added new configuration options for file retention
+- Added improved logging for file operations
+
+### Changed
+- Enhanced file handling with more robust error checking
+- Improved logging of file operations
+- Updated configuration structure for file settings
+
+### Fixed
+- Fixed issue with file retention in certain cases
+- Improved error handling in file operations
+- Enhanced stability of the file system
+
+## [1.5.0] - 2024-06-04
+### Added
+- Added support for multiple hotfolder roots
+- Added new configuration options for root management
+- Added improved logging for root operations
+
+### Changed
+- Enhanced root handling with more robust error checking
+- Improved logging of root operations
+- Updated configuration structure for root settings
+
+### Fixed
+- Fixed issue with root management in certain cases
+- Improved error handling in root operations
+- Enhanced stability of the root system
+
+## [1.4.0] - 2024-06-03
+### Added
+- Added support for system file cleanup
+- Added new configuration options for cleanup
+- Added improved logging for cleanup operations
+
+### Changed
+- Enhanced cleanup with more robust error checking
+- Improved logging of cleanup operations
+- Updated configuration structure for cleanup settings
+
+### Fixed
+- Fixed issue with cleanup in certain cases
+- Improved error handling in cleanup operations
+- Enhanced stability of the cleanup system
+
+## [1.3.0] - 2024-06-02
+### Added
+- Added support for file modification time handling
+- Added new configuration options for mtime
+- Added improved logging for mtime operations
+
+### Changed
+- Enhanced mtime handling with more robust error checking
+- Improved logging of mtime operations
+- Updated configuration structure for mtime settings
+
+### Fixed
+- Fixed issue with mtime handling in certain cases
+- Improved error handling in mtime operations
+- Enhanced stability of the mtime system
+
+## [1.2.0] - 2024-06-01
+### Added
+- Added support for heartbeat monitoring
+- Added new configuration options for heartbeat
+- Added improved logging for heartbeat operations
+
+### Changed
+- Enhanced heartbeat with more robust error checking
+- Improved logging of heartbeat operations
+- Updated configuration structure for heartbeat settings
+
+### Fixed
+- Fixed issue with heartbeat in certain cases
+- Improved error handling in heartbeat operations
+- Enhanced stability of the heartbeat system
+
+## [1.1.0] - 2024-05-31
+### Added
+- Added support for debug logging
+- Added new configuration options for debugging
+- Added improved logging for debug operations
+
+### Changed
+- Enhanced debug logging with more robust error checking
+- Improved logging of debug operations
+- Updated configuration structure for debug settings
+
+### Fixed
+- Fixed issue with debug logging in certain cases
+- Improved error handling in debug operations
+- Enhanced stability of the debug system
+
+## [1.0.0] - 2024-05-30
+### Added
+- Initial release of the hotfolder agent
+- Basic hotfolder monitoring and file processing
+- Configuration system with YAML support
+- Logging system with rotation
+- File movement and copying capabilities
+- Support for multiple hotfolder roots
+- System file cleanup (.DS_Store, Thumbs.db)
+- File modification time handling
+- Debug logging
+- Heartbeat monitoring
+- Retention policy
+- Folder structure options
+- Metadata handling 

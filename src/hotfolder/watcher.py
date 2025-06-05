@@ -263,7 +263,7 @@ class HotfolderWatcher:
                     if debug_enabled:
                         self._debug_print(folder, f"[DB] Removed from seen: {subrel}", debug_enabled=debug_enabled)
                 # Reset seen_time if any file added, removed, or mtime changed
-                if latest_mtime > last_seen or files_added or files_removed or mtimes_changed or deleted_from_seen:
+                if files_added or files_removed or mtimes_changed or deleted_from_seen:
                     state_db.set_seen(rel, now, f_path.stat().st_mtime)
                     changed = True
                     if debug_enabled:
