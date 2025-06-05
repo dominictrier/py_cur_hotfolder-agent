@@ -433,7 +433,19 @@ class HotfolderWatcher:
             processed_time = processed.get(rel, {}).get("processed_time")
             age = (now - processed_time) if processed_time else None
             if debug_enabled:
-                self._debug_print(folder, f"File: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: {processed_time}, age: {age if age is not None else 'N/A'}", debug_enabled=debug_enabled)
+                if f_path.is_dir():
+                    # For folders, check if any files are processed
+                    processed_files = {k: v for k, v in processed.items() if k.startswith(rel + '/')}
+                    if processed_files:
+                        # Use the latest processed time from any file
+                        latest_processed = max(v.get('processed_time', 0) for v in processed_files.values())
+                        processed_time = latest_processed
+                        age = (now - processed_time) if processed_time else None
+                        self._debug_print(folder, f"Folder: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: {processed_time}, age: {age if age is not None else 'N/A'} (from processed files)", debug_enabled=debug_enabled)
+                    else:
+                        self._debug_print(folder, f"Folder: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: None, age: N/A (no processed files)", debug_enabled=debug_enabled)
+                else:
+                    self._debug_print(folder, f"File: {f}, seen_time: {seen_time}, stable: {stable}, processed_time: {processed_time}, age: {age if age is not None else 'N/A'}", debug_enabled=debug_enabled)
             # After each file/folder, check if the parent folder still exists
             if not folder.exists():
                 config = get_effective_config(folder, self.global_config)

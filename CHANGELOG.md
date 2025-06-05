@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed folder processing logic to ensure ALL files must rest before processing
 - Added cleanup of both seen and processed database entries when folders are removed from IN
-- Improved debug logging for file resting status
+- Improved debug logging for file resting status and processed times
 - Clarified separation between seen_time (for resting) and mtime (for changes)
 
 ## [1.10.1] - 2024-06-12
