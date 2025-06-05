@@ -143,14 +143,37 @@ class HotfolderWatcher:
             if debug_enabled:
                 self._debug_print(folder, f"[SKIP] Folder {folder} no longer exists, skipping.", debug_enabled=debug_enabled)
             return
-        for old_state in [folder / '.seen.json', folder / '.processed.json']:
-            if old_state.exists():
-                try:
-                    old_state.unlink()
-                except Exception:
-                    pass
+
         # Use SQLite state DB
         state_db = HotfolderStateDB(folder)
+        
+        # Get current files and folders
+        current_items = {str(f.relative_to(folder)) for f in folder.iterdir() if not f.name.startswith('.')}
+        
+        # Clean up seen and processed entries for removed items
+        seen = state_db.get_seen()
+        processed = state_db.get_processed()
+        
+        # Clean up seen state for any removed items
+        for seen_path in list(seen.keys()):
+            # Skip if item still exists
+            if seen_path in current_items:
+                continue
+            # Item was removed (by workflow, retention, or user) - clean up its state
+            state_db.remove_seen(seen_path)
+            if debug_enabled:
+                self._debug_print(folder, f"[CLEANUP] Removed seen state for removed item: {seen_path}", debug_enabled=debug_enabled)
+        
+        # Clean up processed state for any removed items
+        for processed_path in list(processed.keys()):
+            # Skip if item still exists
+            if processed_path in current_items:
+                continue
+            # Item was removed (by workflow, retention, or user) - clean up its state
+            state_db.remove_processed(processed_path)
+            if debug_enabled:
+                self._debug_print(folder, f"[CLEANUP] Removed processed state for removed item: {processed_path}", debug_enabled=debug_enabled)
+
         # Deferred deletion: clean up any job folders marked for deletion
         ready_for_deletion = state_db.get_ready_for_deletion_jobs()
         for job_name in ready_for_deletion:
@@ -158,6 +181,7 @@ class HotfolderWatcher:
             if job_folder.exists() and job_folder.is_dir() and not any(job_folder.iterdir()):
                 try:
                     job_folder.rmdir()
+                    # Clean up state for this job folder and all its files
                     state_db.remove_seen_prefix(job_name)
                     state_db.remove_processed_prefix(job_name)
                     config = get_effective_config(folder, self.global_config)
@@ -169,6 +193,7 @@ class HotfolderWatcher:
                 except Exception as e:
                     if debug_enabled:
                         self._debug_print(folder, f"[CLEANUP] Failed to delete marked job folder {job_folder}: {e}", debug_enabled=debug_enabled)
+
         # Determine debug mode for this hotfolder
         if hotfolder_debug is None:
             config = get_effective_config(folder, self.global_config)
@@ -441,14 +466,20 @@ class HotfolderWatcher:
                 for rel, entry in processed.items():
                     pt = entry.get("processed_time")
                     age = (now - pt) / 60 if pt else None
-                    debug_msg += f"  {rel}: processed_time={pt}, age_min={age:.2f}\n" if pt else f"  {rel}: processed_time=None\n"
+                    exists = (folder / rel).exists()
+                    debug_msg += f"  {rel}: processed_time={pt}, age_min={age:.2f}, exists={exists}\n" if pt else f"  {rel}: processed_time=None, exists={exists}\n"
                 self._debug_print(folder, debug_msg.rstrip(), debug_enabled=debug_enabled)
-            # Actually delete files that are past retention
+            
+            # Clean up processed entries for files that no longer exist or are past retention
             for rel, entry in list(processed.items()):
                 pt = entry.get("processed_time")
-                if pt and (now - pt) / 60 > cleanup_time:
-                    abs_path = folder / rel
-                    if abs_path.exists():
+                abs_path = folder / rel
+                file_exists = abs_path.exists()
+                
+                # Clean up if file doesn't exist OR if it's past retention time
+                if not file_exists or (pt and (now - pt) / 60 > cleanup_time):
+                    # If file exists and is past retention, delete it
+                    if file_exists:
                         try:
                             abs_path.unlink()
                             if debug_enabled:
@@ -457,6 +488,14 @@ class HotfolderWatcher:
                         except Exception as e:
                             if debug_enabled:
                                 self._debug_print(folder, f"[RETENTION] Failed to delete {rel}: {e}", debug_enabled=debug_enabled)
+                    
+                    # Always clean up DB entries for non-existent files or those past retention
+                    state_db.remove_seen(rel)
+                    state_db.remove_processed(rel)
+                    if debug_enabled:
+                        reason = "file no longer exists" if not file_exists else f"past retention time ({cleanup_time} min)"
+                        self._debug_print(folder, f"[RETENTION] Cleaned up DB entries for {rel} because {reason}", debug_enabled=debug_enabled)
+
             # After deleting files, check if the job folder is empty and delete it if so
             for job_folder in folder.iterdir():
                 if job_folder.is_dir():

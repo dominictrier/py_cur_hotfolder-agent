@@ -105,3 +105,52 @@ The watcher was not properly checking if all files in a folder had rested before
 - See CHANGELOG.md [1.10.2]
 
 ---
+
+## 2024-06-12: Added cleanup of seen and processed states for all removal cases
+
+**Decision:**  
+Added automatic cleanup of both seen and processed database entries in all cases where files or folders are removed from the IN folder.
+
+**Context:**  
+The database entries needed to be cleaned up in three scenarios:
+1. When files/folders are removed by the workflow (moved to OUT)
+2. When files/folders are removed by retention policy
+3. When files/folders are deleted by the user
+
+Without proper cleanup, files could be processed immediately when moved back to IN, bypassing the resting time requirement.
+
+**Consequences:**  
+- Database entries are cleaned up whenever a file or folder is removed from IN, regardless of how it was removed
+- This ensures proper resting time is enforced for all files, even those that were previously in IN
+- Cleanup happens for both seen and processed states
+- Debug logging shows when states are cleaned up for removed items
+
+**Related Issues/PRs:**  
+- See CHANGELOG.md [1.10.2]
+
+---
+
+## 2024-06-12: Added cleanup of ghost entries during retention
+
+**Decision:**  
+Modified retention cleanup to also remove database entries for files that no longer exist, regardless of their retention time.
+
+**Context:**  
+The retention cleanup was only removing database entries for files that:
+1. Still existed in the filesystem
+2. Had exceeded the retention time
+
+This meant we could have "ghost" entries in the database for files that were deleted or moved but still had processed entries.
+
+**Consequences:**  
+- During retention cleanup, we now check if each file exists
+- Database entries are cleaned up if:
+  1. The file no longer exists (regardless of retention time)
+  2. The file exists but has exceeded retention time
+- This ensures the database stays clean and doesn't accumulate ghost entries
+- Debug logging now shows whether files exist and why they're being cleaned up
+
+**Related Issues/PRs:**  
+- See CHANGELOG.md [1.10.2]
+
+---
